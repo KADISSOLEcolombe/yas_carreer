@@ -33,7 +33,6 @@ export default function AdminRolesPage() {
     const registry = getRegistry();
     setUsers(registry);
   };
-
   const handleRoleChange = (user: StoredUser, newRole: UserRole) => {
     const updatedUsers = users.map((u) =>
       u.id === user.id ? { ...u, role: newRole } : u
@@ -128,7 +127,6 @@ export default function AdminRolesPage() {
           );
         })}
       </div>
-
       {/* All Users Table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200">

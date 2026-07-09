@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 255">
+  <path d="M42,128 C8,74 26,12 90,5 C140,-1 218,18 262,68 C298,106 292,168 254,204 C213,242 158,252 104,242 C46,230 10,196 42,128 Z" fill="#00377D"/>
+  <text x="36" y="168"
+    font-family="'Arial Black', 'Impact', Arial, sans-serif"
+    font-size="118"
+    font-weight="900"
+    fill="#FFD100"
+    letter-spacing="-4">yas</text>
+  <rect x="40" y="180" width="23" height="23" rx="3" fill="#FFD100"/>
+</svg>

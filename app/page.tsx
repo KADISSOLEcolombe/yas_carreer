@@ -2,20 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getJobs, resetJobsToDefaults, type Job } from '../lib/jobs';
+import { getJobs, type Job } from '../lib/jobs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Briefcase, MapPin, ChevronRight, Search, Building, Users, Award, LogOut } from 'lucide-react';
-
-// Type definitions
-interface JobOffer {
-  id: number;
-  title: string;
-  company: string;
-  location: string;
-  type: 'Stage' | 'CDI' | 'CDD';
-  salary?: string;
-}
+import { MapPin, ChevronRight, Search, Building, Users, Award, LogOut } from 'lucide-react';
+import JobOfferCard from '../components/JobOfferCard';
 
 // Color palette (adjusted for professionalism and brand identity)
 const COLORS = {
@@ -47,18 +38,13 @@ function Header() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-3">
-            <div
-              className="w-10 h-10 rounded-md flex items-center justify-center text-white font-bold text-xl"
-              style={{ backgroundColor: COLORS.yellow }}
-            >
-              YT
-            </div>
+            <img src="/yas-logo.svg" alt="YAS Togo" className="h-12 w-auto" />
             <div className="flex flex-col">
               <span className="font-bold text-lg leading-tight" style={{ color: COLORS.midnight }}>
                 YAS Togo
               </span>
               <span className="text-xs leading-tight" style={{ color: COLORS.text.muted }}>
-                Nos offres d'emploi
+                Youth Employment Support
               </span>
             </div>
           </Link>
@@ -171,32 +157,22 @@ function Header() {
 
 // Hero Section Component
 function HeroSection() {
-  const recentOffers: JobOffer[] = [
-    { id: 1, title: 'Développeur Web Junior', company: 'YAS Togo', location: 'Lomé', type: 'CDI' },
-    { id: 2, title: 'Stage Marketing Digital', company: 'YAS Togo', location: 'Lomé', type: 'Stage' },
-    { id: 3, title: 'Comptable Stagiaire', company: 'YAS Togo', location: 'Kara', type: 'Stage' },
-    { id: 4, title: 'Chargé de Communication', company: 'YAS Togo', location: 'Lomé', type: 'CDD' },
-  ];
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchType, setSearchType] = React.useState('Tous');
+  const router = useRouter();
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Stage':
-        return { bg: '#FFF7D6', text: '#854D0E' };
-      case 'CDI':
-        return { bg: '#D1FAE5', text: '#065F46' };
-      case 'CDD':
-        return { bg: '#DBEAFE', text: '#1E40AF' };
-      default:
-        return { bg: '#F3F4F6', text: '#4B5563' };
-    }
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) params.set('q', searchQuery.trim());
+    if (searchType !== 'Tous') params.set('type', searchType);
+    router.push(`/offres${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
   return (
     <section className="pt-24 pb-16" style={{ backgroundColor: COLORS.midnight }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-          {/* Left Content */}
-          <div className="lg:col-span-2">
+        <div className="max-w-4xl">
             <div className="mb-6 inline-block px-6 py-2 rounded-full" style={{ backgroundColor: COLORS.yellow }}>
               <span className="text-sm font-bold" style={{ color: COLORS.midnight }}>
                 PLATEFORME OFFICIELLE YAS
@@ -228,33 +204,35 @@ function HeroSection() {
             </div>
 
             {/* Search bar */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3 mb-8 shadow-md">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="flex-1 flex items-center gap-2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-md">
-                  <Search size={20} className="text-gray-400" />
+            <form onSubmit={handleSearch} className="mb-8">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 flex items-center gap-3 px-5 py-3.5 bg-white rounded-full border border-white/20 shadow-md">
+                  <Search size={22} className="text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Poste, compétences ou entreprise"
-                    className="flex-1 outline-none text-gray-800"
+                    placeholder="Rechercher un poste, département..."
+                    className="flex-1 outline-none text-slate-800 bg-transparent"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-md">
-                  <MapPin size={20} className="text-gray-400" />
-                  <select className="outline-none text-gray-800 bg-transparent">
-                    <option>Toute localisation</option>
-                    <option>Lomé</option>
-                    <option>Kara</option>
-                    <option>Sokodé</option>
+                <div className="flex items-center gap-2 px-5 py-3.5 bg-white rounded-full border border-white/20 shadow-md sm:min-w-[190px]">
+                  <select
+                    className="outline-none text-slate-900 bg-transparent w-full"
+                    value={searchType}
+                    onChange={(e) => setSearchType(e.target.value)}
+                  >
+                    <option value="Tous">Tous les types</option>
+                    <option value="CDI">CDI</option>
+                    <option value="CDD">CDD</option>
+                    <option value="Stage">Stage</option>
                   </select>
                 </div>
-                <button
-                  className="px-8 py-3 text-gray-900 font-bold rounded-md transition-all hover:opacity-90"
-                  style={{ backgroundColor: COLORS.yellow }}
-                >
-                  Rechercher
-                </button>
               </div>
-            </div>
+              <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1}>
+                Rechercher
+              </button>
+            </form>
 
             {/* Stats */}
             <div className="flex flex-wrap gap-8">
@@ -277,77 +255,6 @@ function HeroSection() {
                 <div className="text-sm text-blue-100">CANDIDATS INSCRITS</div>
               </div>
             </div>
-          </div>
-
-          {/* Right Sidebar - Recent Offers */}
-          <div className="hidden lg:block">
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
-              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center text-gray-900 font-bold" style={{ backgroundColor: COLORS.yellow }}>
-                  YT
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Offres disponibles</h3>
-                  <p className="text-xs text-gray-500">Récemment ajoutées</p>
-                </div>
-              </div>
-              <div className="space-y-4">
-                {recentOffers.map((offer) => {
-                  const typeColor = getTypeColor(offer.type);
-                  return (
-                    <Link
-                      key={offer.id}
-                      href={`/offres/${offer.id}`}
-                      className="block p-4 bg-gray-50 border border-transparent rounded-xl hover:border-gray-300 hover:shadow-md transition-all"
-                    >
-                      <h4 className="font-semibold text-gray-900 mb-1 text-sm" style={{ color: COLORS.midnight }}>
-                        {offer.title}
-                      </h4>
-                      <p className="text-xs text-gray-500 mb-2">{offer.company} · {offer.location}</p>
-                      <div className="flex items-center justify-between">
-                        <span
-                          className="px-3 py-1 rounded-full text-xs font-semibold"
-                          style={{ backgroundColor: typeColor.bg, color: typeColor.text }}
-                        >
-                          {offer.type}
-                        </span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-              <Link
-                href="/offres"
-                className="w-full flex items-center justify-center gap-2 mt-6 px-4 py-3 rounded-md font-bold text-gray-400 bg-gray-100 hover:bg-gray-200 transition-all"
-              >
-                Voir toutes les offres <ChevronRight size={16} />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// Stats Section
-function StatsSection() {
-  const stats = [
-    { number: '500+', label: 'Offres disponibles' },
-    { number: '200+', label: 'Entreprises partenaires' },
-    { number: '10k+', label: 'Candidats inscrits' },
-  ];
-
-  return (
-    <section className="py-12" style={{ backgroundColor: COLORS.midnight }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-          {stats.map((stat, index) => (
-            <div key={index}>
-              <div className="text-4xl font-bold text-white mb-2">{stat.number}</div>
-              <div className="text-blue-200">{stat.label}</div>
-            </div>
-          ))}
         </div>
       </div>
     </section>
@@ -408,8 +315,6 @@ function WhyChooseSection() {
 
 // Recent Offers Section
 function RecentOffersSection() {
-  const { isAuthenticated } = useAuth();
-  const router = useRouter();
   const [offers, setOffers] = useState<Job[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -435,27 +340,6 @@ function RecentOffersSection() {
       window.removeEventListener('focus', loadOffers);
     };
   }, []);
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Stage':
-        return { bg: '#FFF7D6', text: '#854D0E' };
-      case 'CDI':
-        return { bg: '#D1FAE5', text: '#065F46' };
-      case 'CDD':
-        return { bg: '#DBEAFE', text: '#1E40AF' };
-      default:
-        return { bg: '#F3F4F6', text: '#4B5563' };
-    }
-  };
-
-  const handleApply = (jobId: number) => {
-    if (!isAuthenticated) {
-      router.push(`/login?redirect=/offres/${jobId}&message=auth_required`);
-    } else {
-      router.push(`/offres/${jobId}`);
-    }
-  };
 
   return (
     <section className="py-16 bg-gray-50">
@@ -483,48 +367,9 @@ function RecentOffersSection() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {offers.map((offer) => {
-            const typeColor = getTypeColor(offer.type);
-            return (
-              <div key={offer.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all">
-                <div className="mb-5">
-                  <h3 className="font-semibold text-lg mb-2 text-gray-900">{offer.title}</h3>
-                  <p className="text-gray-600 text-sm">{offer.company}</p>
-                </div>
-                
-                <div className="flex flex-wrap gap-3 mb-5">
-                  <span className="flex items-center gap-1.5 text-sm text-gray-600">
-                    <MapPin size={16} /> {offer.location}
-                  </span>
-                  {offer.salary && (
-                    <span className="text-sm text-gray-500">{offer.salary}</span>
-                  )}
-                  <span
-                    className="px-2.5 py-1 rounded text-xs font-semibold"
-                    style={{ backgroundColor: typeColor.bg, color: typeColor.text }}
-                  >
-                    {offer.type}
-                  </span>
-                </div>
-
-                <div className="flex gap-3 pt-5 border-t border-gray-100">
-                  <Link
-                    href={`/offres/${offer.id}`}
-                    className="flex-1 text-center py-2.5 border border-gray-300 rounded-md font-medium text-gray-700 hover:bg-gray-50 transition-colors text-sm"
-                  >
-                    Voir détails
-                  </Link>
-                  <button
-                    onClick={() => handleApply(offer.id)}
-                    className="flex-1 py-2.5 rounded-md font-bold text-gray-900 text-sm transition-all hover:opacity-90 shadow-sm"
-                    style={{ backgroundColor: COLORS.yellow }}
-                  >
-                    Postuler
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+            {offers.map((offer) => (
+              <JobOfferCard key={offer.id} job={offer} />
+            ))}
         </div>
         )}
 
@@ -550,12 +395,10 @@ function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center space-x-2 mb-4">
-              <div className="w-10 h-10 rounded-md flex items-center justify-center text-white font-bold text-xl" style={{ backgroundColor: COLORS.yellow }}>
-                YT
-              </div>
+              <img src="/yas-logo.svg" alt="YAS Togo" className="h-12 w-auto" />
               <div className="flex flex-col">
                 <span className="font-bold text-white">YAS Togo</span>
-                <span className="text-xs text-gray-300">Nos offres d'emploi</span>
+                <span className="text-xs text-gray-300">Youth Employment Support</span>
               </div>
             </div>
             <p className="text-gray-300 text-sm">

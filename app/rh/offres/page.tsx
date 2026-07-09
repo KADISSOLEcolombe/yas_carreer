@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff, BriefcaseBusiness, Users, ShieldCheck, LayoutGrid } from 'lucide-react';
 import { COLORS } from '../../../lib/constants';
 import { getJobs, saveJob, updateJob, deleteJob, type Job } from '../../../lib/jobs';
 
@@ -18,9 +18,9 @@ const EMPTY_FORM = {
 
 export default function RHOffresPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadJobs = () => setJobs(getJobs(true));
 
@@ -31,7 +31,6 @@ export default function RHOffresPage() {
   const openCreate = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
-    setShowForm(true);
   };
 
   const openEdit = (job: Job) => {
@@ -46,11 +45,11 @@ export default function RHOffresPage() {
       requirements: job.requirements.join('\n'),
       responsibilities: job.responsibilities.join('\n'),
     });
-    setShowForm(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const data = {
       title: form.title,
       company: form.company,
@@ -69,8 +68,8 @@ export default function RHOffresPage() {
       saveJob(data);
     }
 
-    setShowForm(false);
     loadJobs();
+    setIsSubmitting(false);
   };
 
   const handleToggleActive = (job: Job) => {
@@ -87,119 +86,175 @@ export default function RHOffresPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: COLORS.midnight }}>
-            Offres d'emploi
-          </h1>
-          <p className="text-gray-600">Publier et gérer les offres</p>
-        </div>
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md font-bold text-gray-900 hover:opacity-90"
-          style={{ backgroundColor: COLORS.yellow }}
-        >
-          <Plus size={18} />
-          Nouvelle offre
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowForm(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-lg font-bold mb-4" style={{ color: COLORS.midnight }}>
-              {editingId ? 'Modifier l\'offre' : 'Publier une offre'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Titre du poste *</label>
-                  <input
-                    required
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  />
+    <div className="space-y-10">
+      <div className="overflow-hidden rounded-[28px] border border-blue-900/10 bg-white shadow-[0_18px_60px_rgba(0,55,125,0.16)]">
+        <div className="grid min-h-[760px] lg:grid-cols-[1.02fr_1fr]">
+          <div className="relative overflow-hidden bg-[#3E61B8] px-8 py-10 text-white sm:px-12 lg:px-14">
+            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.10) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+            <div className="relative flex h-full flex-col justify-center">
+              <div className="mx-auto mb-10 flex h-28 w-28 items-center justify-center rounded-[32px] bg-[#0D2F88]/80 shadow-xl">
+                <div className="text-5xl font-black italic tracking-tight text-[#FFD100]">yas</div>
+              </div>
+              <div className="mx-auto max-w-md text-center">
+                <h2 className="text-4xl font-extrabold leading-tight sm:text-5xl">YAS Togo HR</h2>
+                <p className="mt-5 text-lg leading-relaxed text-white/80">
+                  Crée et publie une offre en quelques minutes pour attirer les meilleurs talents.
+                </p>
+                <div className="mt-10 grid grid-cols-1 gap-4 text-left sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+                    <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+                      <BriefcaseBusiness size={20} />
+                    </div>
+                    <p className="font-semibold">Publication rapide</p>
+                    <p className="mt-1 text-sm text-white/75">Renseigne le poste et publie immédiatement.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+                    <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+                      <Users size={20} />
+                    </div>
+                    <p className="font-semibold">Talents ciblés</p>
+                    <p className="mt-1 text-sm text-white/75">Description, prérequis et responsabilités bien structurés.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+                    <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+                      <ShieldCheck size={20} />
+                    </div>
+                    <p className="font-semibold">Gestion centralisée</p>
+                    <p className="mt-1 text-sm text-white/75">Active, archive ou modifie une offre à tout moment.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+                    <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+                      <LayoutGrid size={20} />
+                    </div>
+                    <p className="font-semibold">Conçu pour RH</p>
+                    <p className="mt-1 text-sm text-white/75">Une interface claire, compacte et facile à utiliser.</p>
+                  </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white px-6 py-8 sm:px-8 lg:px-10">
+            <div className="mb-6">
+              <h1 className="text-3xl font-extrabold text-slate-900">
+                {editingId ? 'Modifier l\'offre' : 'Créer une offre'}
+              </h1>
+              <p className="mt-2 text-sm text-slate-500">
+                Complète les informations de l’offre avant publication.
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Nom du poste *</label>
+                <input
+                  required
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="Ex: Développeur Full Stack"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[#FFD100] focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Entreprise</label>
+                <input
+                  value={form.company}
+                  onChange={(e) => setForm({ ...form, company: e.target.value })}
+                  placeholder="Ex: YAS Togo"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[#FFD100] focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Lieu</label>
                   <input
                     value={form.location}
                     onChange={(e) => setForm({ ...form, location: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[#FFD100] focus:bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Type</label>
                   <select
                     value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[#FFD100] focus:bg-white"
                   >
                     <option>CDI</option>
                     <option>CDD</option>
                     <option>Stage</option>
                   </select>
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Salaire</label>
-                  <input
-                    value={form.salary}
-                    onChange={(e) => setForm({ ...form, salary: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none"
-                  />
-                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Salaire</label>
+                <input
+                  value={form.salary}
+                  onChange={(e) => setForm({ ...form, salary: e.target.value })}
+                  placeholder="Ex: 800 000 - 1 200 000 FCFA"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[#FFD100] focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Description *</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Décris le poste, le contexte et les missions principales."
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[#FFD100] focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Prérequis (un par ligne)</label>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Prérequis (un par ligne)</label>
                   <textarea
-                    rows={4}
+                    rows={5}
                     value={form.requirements}
                     onChange={(e) => setForm({ ...form, requirements: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none"
+                    placeholder="Ex: Maîtrise de React\nEx: Bonne communication"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[#FFD100] focus:bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Responsabilités (une par ligne)</label>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Responsabilités (une par ligne)</label>
                   <textarea
-                    rows={4}
+                    rows={5}
                     value={form.responsibilities}
                     onChange={(e) => setForm({ ...form, responsibilities: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none"
+                    placeholder="Ex: Concevoir les interfaces\nEx: Collaborer avec l'équipe"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[#FFD100] focus:bg-white"
                   />
                 </div>
               </div>
-              <div className="flex gap-3 pt-2">
+
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
-                  className="flex-1 py-2.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  onClick={openCreate}
+                  className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
-                  Annuler
+                  Réinitialiser
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-md font-bold text-gray-900"
-                  style={{ backgroundColor: COLORS.yellow }}
+                  disabled={isSubmitting}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FFD100] px-5 py-3 text-sm font-bold text-slate-900 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {editingId ? 'Enregistrer' : 'Publier'}
+                  <Plus size={18} />
+                  {isSubmitting ? 'Enregistrement...' : editingId ? 'Enregistrer l\'offre' : 'Publier l\'offre'}
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
+      </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         {jobs.length === 0 ? (

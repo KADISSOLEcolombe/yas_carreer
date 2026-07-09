@@ -1,8 +1,33 @@
+export const JOB_CATEGORIES = [
+  'Informatique & Tech',
+  'Marketing & Communication',
+  'Finance & Comptabilité',
+  'Ressources Humaines',
+  'Design & Créatif',
+  'Data & Analytique',
+  'Management & Stratégie',
+  'Autre',
+] as const;
+
+export const JOB_DEPARTMENTS = [
+  'Lomé',
+  'Kara',
+  'Sokodé',
+  'Kpalimé',
+  'Atakpamé',
+  'Dapaong',
+] as const;
+
+export type JobCategory = (typeof JOB_CATEGORIES)[number];
+export type JobDepartment = (typeof JOB_DEPARTMENTS)[number];
+
 export interface Job {
   id: number;
   title: string;
   company: string;
   location: string;
+  department: JobDepartment;
+  category: JobCategory;
   type: string;
   salary: string;
   description: string;
@@ -20,6 +45,8 @@ export const DEFAULT_JOBS: Job[] = [
     title: 'Développeur Full Stack',
     company: 'YAS Togo',
     location: 'Lomé',
+    department: 'Lomé',
+    category: 'Informatique & Tech',
     type: 'CDI',
     salary: 'À discuter',
     description: 'Nous recherchons un développeur Full Stack talentueux pour rejoindre notre équipe en pleine croissance.',
@@ -43,6 +70,8 @@ export const DEFAULT_JOBS: Job[] = [
     title: 'Product Manager',
     company: 'YAS Togo',
     location: 'Lomé',
+    department: 'Lomé',
+    category: 'Management & Stratégie',
     type: 'CDI',
     salary: 'À discuter',
     description: 'En tant que Product Manager chez YAS Togo, vous serez responsable de la vision et de l\'exécution du produit.',
@@ -65,6 +94,8 @@ export const DEFAULT_JOBS: Job[] = [
     title: 'Designer UX/UI',
     company: 'YAS Togo',
     location: 'Lomé',
+    department: 'Lomé',
+    category: 'Design & Créatif',
     type: 'Stage',
     salary: 'Indemnité',
     description: 'Stage de 6 mois pour un Designer UX/UI passionné.',
@@ -87,6 +118,8 @@ export const DEFAULT_JOBS: Job[] = [
     title: 'Data Scientist',
     company: 'YAS Togo',
     location: 'Lomé',
+    department: 'Lomé',
+    category: 'Data & Analytique',
     type: 'CDI',
     salary: 'À discuter',
     description: 'Rejoignez notre équipe data pour construire des solutions innovantes.',
@@ -109,6 +142,8 @@ export const DEFAULT_JOBS: Job[] = [
     title: 'Community Manager',
     company: 'YAS Togo',
     location: 'Lomé',
+    department: 'Lomé',
+    category: 'Marketing & Communication',
     type: 'Stage',
     salary: 'Indemnité',
     description: 'Gérer et animer la communauté YAS Togo sur les réseaux sociaux.',
@@ -131,6 +166,8 @@ export const DEFAULT_JOBS: Job[] = [
     title: 'Responsable RH',
     company: 'YAS Togo',
     location: 'Lomé',
+    department: 'Lomé',
+    category: 'Ressources Humaines',
     type: 'CDI',
     salary: 'À discuter',
     description: 'Diriger le département des ressources humaines de YAS Togo.',

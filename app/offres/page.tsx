@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getJobs, resetJobsToDefaults, type Job } from '../../lib/jobs';
-import { useRouter } from 'next/navigation';
+import { getJobs, resetJobsToDefaults, JOB_CATEGORIES, JOB_DEPARTMENTS, type Job } from '../../lib/jobs';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Search, MapPin, Filter, Briefcase, ChevronRight, ArrowLeft, Users, LogOut, Building, Award } from 'lucide-react';
+import { Search, MapPin, Filter, Briefcase, ArrowLeft, Users, LogOut } from 'lucide-react';
+import JobOfferCard from '../../components/JobOfferCard';
 
 const COLORS = {
   yellow: '#FFD100',
@@ -158,17 +159,20 @@ function Header() {
 }
 
 export default function OffersPage() {
-  const { isAuthenticated, isRecruiter } = useAuth();
-  const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('Tous');
+  const searchParams = useSearchParams();
+  const typeFromQuery = searchParams.get('type');
+  const initialType = typeFromQuery === 'CDI' || typeFromQuery === 'CDD' || typeFromQuery === 'Stage' ? typeFromQuery : 'Tous';
+
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
+  const [filterType, setFilterType] = useState(initialType);
+  const [filterCategory, setFilterCategory] = useState('Toutes');
+  const [filterDepartment, setFilterDepartment] = useState(searchParams.get('location') || 'Tous');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   const loadJobs = () => {
     try {
       const loadedJobs = getJobs();
-      console.log('Offres chargées:', loadedJobs.length, loadedJobs);
       setJobs(loadedJobs);
       setLoaded(true);
     } catch (error) {
@@ -196,34 +200,19 @@ export default function OffersPage() {
   }, []);
 
   const filteredJobs = jobs.filter((job) => {
-    const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          job.company.toLowerCase().includes(searchTerm.toLowerCase());
+    const q = searchTerm.toLowerCase();
+    const matchesSearch = !q || job.title.toLowerCase().includes(q) || job.company.toLowerCase().includes(q);
     const matchesType = filterType === 'Tous' || job.type === filterType;
-    return matchesSearch && matchesType;
+    const matchesCategory = filterCategory === 'Toutes' || job.category === filterCategory;
+    const matchesDepartment = filterDepartment === 'Tous' || job.department === filterDepartment;
+    return matchesSearch && matchesType && matchesCategory && matchesDepartment;
   });
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Stage':
-        return { bg: '#FFF7D6', text: '#854D0E' };
-      case 'CDI':
-        return { bg: '#D1FAE5', text: '#065F46' };
-      case 'CDD':
-        return { bg: '#DBEAFE', text: '#1E40AF' };
-      default:
-        return { bg: '#F3F4F6', text: '#4B5563' };
-    }
-  };
-
-  const handleApply = (jobId: number) => {
-    if (!isAuthenticated) {
-      router.push(`/login?redirect=/offres/${jobId}&message=auth_required`);
-    } else if (isRecruiter) {
-      router.push('/rh/dashboard');
-    } else {
-      router.push(`/offres/${jobId}`);
-    }
-  };
+  const activeFiltersCount = [
+    filterType !== 'Tous',
+    filterCategory !== 'Toutes',
+    filterDepartment !== 'Tous',
+  ].filter(Boolean).length;
 
   const handleReset = () => {
     if (confirm('Réinitialiser toutes les offres aux valeurs par défaut ?')) {
@@ -247,26 +236,40 @@ export default function OffersPage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold mb-2" style={{ color: COLORS.text.primary }}>
-                  Offres d'emploi et stages
+                  {filteredJobs.length} offre{filteredJobs.length > 1 ? 's' : ''} disponible{filteredJobs.length > 1 ? 's' : ''}
                 </h1>
-                <p style={{ color: COLORS.text.secondary }}>
-                  {filteredJobs.length} offre{filteredJobs.length > 1 ? 's' : ''} trouvée{filteredJobs.length > 1 ? 's' : ''}
-                </p>
               </div>
-              <button
-                onClick={handleReset}
-                className="text-xs px-3 py-1.5 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50"
-                title="Réinitialiser les offres aux valeurs par défaut"
-              >
-                🔄 Réinitialiser
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                {['Tous', 'CDI', 'CDD', 'Stage'].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setFilterType(type)}
+                    className="rounded-2xl border px-5 py-2 text-xl font-semibold transition-colors md:text-base"
+                    style={
+                      filterType === type
+                        ? { backgroundColor: COLORS.midnight, color: '#fff', borderColor: COLORS.midnight }
+                        : { backgroundColor: '#fff', color: '#475569', borderColor: '#D1D5DB' }
+                    }
+                  >
+                    {type}
+                  </button>
+                ))}
+                <button
+                  onClick={handleReset}
+                  className="rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                  title="Réinitialiser les offres aux valeurs par défaut"
+                >
+                  Reinitialiser
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Search and Filter Bar */}
           <div className="bg-white border border-gray-200 rounded-lg p-4 mb-8 shadow-sm">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white">
+            <div className="flex flex-col gap-3">
+              {/* Search row */}
+              <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white">
                 <Search size={18} className="text-gray-400" />
                 <input
                   type="text"
@@ -275,20 +278,48 @@ export default function OffersPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
+                {searchTerm && (
+                  <button onClick={() => setSearchTerm('')} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+                )}
               </div>
-              
-              <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white">
-                <Filter size={18} className="text-gray-400" />
-                <select 
-                  className="outline-none text-gray-900 bg-transparent"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                >
-                  <option value="Tous">Tous les types</option>
-                  <option value="CDI">CDI</option>
-                  <option value="CDD">CDD</option>
-                  <option value="Stage">Stage</option>
-                </select>
+              {/* Filters row */}
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white min-w-[200px]">
+                  <Filter size={16} className="text-gray-400" />
+                  <select
+                    className="outline-none text-gray-900 bg-transparent text-sm w-full"
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                  >
+                    <option value="Toutes">Toutes les catégories</option>
+                    {JOB_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white min-w-[160px]">
+                  <MapPin size={16} className="text-gray-400" />
+                  <select
+                    className="outline-none text-gray-900 bg-transparent text-sm"
+                    value={filterDepartment}
+                    onChange={(e) => setFilterDepartment(e.target.value)}
+                  >
+                    <option value="Tous">Tous les départements</option>
+                    {JOB_DEPARTMENTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={() => { setFilterType('Tous'); setFilterCategory('Toutes'); setFilterDepartment('Tous'); }}
+                    className="px-4 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Réinitialiser les filtres ({activeFiltersCount})
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -300,52 +331,9 @@ export default function OffersPage() {
             </div>
           ) : filteredJobs.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredJobs.map((job) => {
-                const typeColor = getTypeColor(job.type);
-                return (
-                  <div key={job.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all">
-                    <div className="mb-4">
-                      <h3 className="font-semibold text-lg mb-1 text-gray-900">{job.title}</h3>
-                      <p className="text-gray-600 text-sm">{job.company}</p>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-3 mb-4">
-                      <span className="flex items-center gap-1.5 text-sm text-gray-600">
-                        <MapPin size={16} /> {job.location}
-                      </span>
-                      {job.salary && (
-                        <span className="text-sm text-gray-500">{job.salary}</span>
-                      )}
-                      <span
-                        className="px-2.5 py-1 rounded text-xs font-semibold"
-                        style={{ backgroundColor: typeColor.bg, color: typeColor.text }}
-                      >
-                        {job.type}
-                      </span>
-                    </div>
-                    
-                    <p className="text-sm text-gray-600 mb-5 line-clamp-2">
-                      {job.description}
-                    </p>
-                    
-                    <div className="flex gap-3 pt-5 border-t border-gray-100">
-                      <Link
-                        href={`/offres/${job.id}`}
-                        className="flex-1 text-center py-2.5 border border-gray-300 rounded-md font-medium text-gray-700 hover:bg-gray-50 transition-colors text-sm"
-                      >
-                        Voir détails
-                      </Link>
-                      <button
-                        onClick={() => handleApply(job.id)}
-                        className="flex-1 py-2.5 rounded-md font-bold text-gray-900 text-sm transition-all hover:opacity-90 shadow-sm"
-                        style={{ backgroundColor: COLORS.yellow }}
-                      >
-                        Postuler
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {filteredJobs.map((job) => (
+                <JobOfferCard key={job.id} job={job} />
+              ))}
             </div>
           ) : (
             <div className="text-center py-16 bg-white border border-gray-200 rounded-lg">
@@ -358,6 +346,7 @@ export default function OffersPage() {
           )}
         </div>
       </div>
+
     </div>
   );
 }
