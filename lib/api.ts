@@ -1,6 +1,6 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-export type UserRole = 'CANDIDATE' | 'RECRUITER' | 'ADMIN';
+export type UserRole = 'CANDIDATE' | 'RECRUITER' | 'ADMIN' | 'SUPERVISOR';
 
 export interface User {
   id: string;

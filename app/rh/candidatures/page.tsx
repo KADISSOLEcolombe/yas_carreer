@@ -1,180 +1,158 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Eye, Filter } from 'lucide-react';
-import { COLORS } from '../../../lib/constants';
-import {
-  getApplications,
-  updateApplicationStatus,
-  STATUS_LABELS,
-  type Application,
-  type ApplicationStatus,
-} from '../../../lib/applications';
-import { sendNotification } from '../../../lib/notifications';
+import { useState } from 'react';
+import { Eye, CircleCheck, CircleX, Filter, Download } from 'lucide-react';
+import RhDashboardHeader from '../../../components/rh/RhDashboardHeader';
 
-const STATUS_COLORS: Record<ApplicationStatus, { bg: string; text: string }> = {
-  PENDING: { bg: '#FFF7D6', text: '#854D0E' },
-  IN_REVIEW: { bg: '#DBEAFE', text: '#1E40AF' },
-  INTERVIEW: { bg: '#EDE9FE', text: '#6D28D9' },
-  ACCEPTED: { bg: '#D1FAE5', text: '#065F46' },
-  REJECTED: { bg: '#FEE2E2', text: '#DC2626' },
+const COLORS = {
+  midnight: '#1e3a8a',
 };
 
-export default function RHCandidaturesPage() {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [filter, setFilter] = useState<ApplicationStatus | 'ALL'>('ALL');
-  const [selected, setSelected] = useState<Application | null>(null);
+type ContractType = 'CDI' | 'CDD' | 'Stage';
+type CandidatureStatus = 'ENTRETIEN' | 'EN_COURS' | 'EN_ATTENTE' | 'ACCEPTE' | 'REFUSE';
 
-  const load = () => {
-    const apps = getApplications().sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    setApplications(apps);
+interface Candidature {
+  id: number;
+  nom: string;
+  poste: string;
+  date: string;
+  type: ContractType;
+  status: CandidatureStatus;
+}
+
+const TYPE_BADGE: Record<ContractType, { bg: string; text: string }> = {
+  CDI: { bg: COLORS.midnight, text: '#FFFFFF' },
+  CDD: { bg: '#F6A800', text: '#FFFFFF' },
+  Stage: { bg: '#5F99D2', text: '#FFFFFF' },
+};
+
+const STATUS_STYLES: Record<CandidatureStatus, { bg: string; text: string; label: string }> = {
+  ENTRETIEN: { bg: '#EDE9FE', text: '#6D28D9', label: 'Entretien planifié' },
+  EN_COURS: { bg: '#DBEAFE', text: '#1E40AF', label: 'En cours' },
+  EN_ATTENTE: { bg: '#FEF3C7', text: '#92400E', label: 'En attente' },
+  ACCEPTE: { bg: '#D1FAE5', text: '#065F46', label: 'Accepté' },
+  REFUSE: { bg: '#FEE2E2', text: '#DC2626', label: 'Refusé' },
+};
+
+// Données d'exemple en dur — à remplacer par un appel API plus tard
+const MOCK_CANDIDATURES: Candidature[] = [
+  { id: 1, nom: 'Kodjo Mensah', poste: 'Développeur Full Stack', date: '14/01/2025', type: 'CDI', status: 'ENTRETIEN' },
+  { id: 2, nom: 'Akossiwa Gnammi', poste: 'Stage – Analyste Business', date: '12/01/2025', type: 'Stage', status: 'EN_COURS' },
+  { id: 3, nom: 'Yao Agbemadon', poste: 'Chargé(e) de Communication', date: '13/01/2025', type: 'CDI', status: 'EN_ATTENTE' },
+  { id: 4, nom: 'Afi Dzivaguru', poste: 'Commercial Terrain', date: '11/01/2025', type: 'CDD', status: 'ACCEPTE' },
+  { id: 5, nom: 'Kwame Tossou', poste: 'Stage – Designer UX/UI', date: '15/01/2025', type: 'Stage', status: 'REFUSE' },
+  { id: 6, nom: 'Dodzi Kpadenou', poste: 'Responsable Comptable', date: '14/01/2025', type: 'CDI', status: 'EN_ATTENTE' },
+];
+
+function TypeBadge({ type }: { type: ContractType }) {
+  const style = TYPE_BADGE[type];
+  return (
+    <span className="inline-flex rounded-full px-3 py-1 text-xs font-bold" style={{ backgroundColor: style.bg, color: style.text }}>
+      {type}
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: CandidatureStatus }) {
+  const style = STATUS_STYLES[status];
+  return (
+    <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: style.bg, color: style.text }}>
+      {style.label}
+    </span>
+  );
+}
+
+export default function RHCandidaturesPage() {
+  const [candidatures, setCandidatures] = useState<Candidature[]>(MOCK_CANDIDATURES);
+
+  const handleNewOffer = () => {
+    alert("Formulaire de création d'offre à venir.");
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  const handleView = (c: Candidature) => {
+    alert(`Détail de la candidature de ${c.nom} — page à venir.`);
+  };
 
-  const filtered =
-    filter === 'ALL' ? applications : applications.filter((a) => a.status === filter);
+  const handleAccept = (id: number) => {
+    setCandidatures((prev) => prev.map((c) => (c.id === id ? { ...c, status: 'ACCEPTE' } : c)));
+  };
 
-  const handleStatusChange = (app: Application, status: ApplicationStatus) => {
-    updateApplicationStatus(app.id, status);
-    sendNotification({
-      userId: app.userId,
-      title: 'Mise à jour de candidature',
-      message: `Votre candidature pour « ${app.jobTitle} » est maintenant : ${STATUS_LABELS[status]}.`,
-      type: 'STATUS',
-    });
-    load();
-    if (selected?.id === app.id) {
-      setSelected({ ...app, status });
-    }
+  const handleReject = (id: number) => {
+    setCandidatures((prev) => prev.map((c) => (c.id === id ? { ...c, status: 'REFUSE' } : c)));
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1" style={{ color: COLORS.midnight }}>
-          Candidatures
-        </h1>
-        <p className="text-gray-600">Gérer et suivre les candidatures reçues</p>
-      </div>
+    <div className="space-y-6">
+      <RhDashboardHeader onNewOffer={handleNewOffer} />
 
-      <div className="flex items-center gap-2 mb-6 flex-wrap">
-        <Filter size={16} className="text-gray-400" />
-        {(['ALL', 'PENDING', 'IN_REVIEW', 'INTERVIEW', 'ACCEPTED', 'REJECTED'] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              filter === s ? 'text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            style={filter === s ? { backgroundColor: COLORS.yellow } : undefined}
-          >
-            {s === 'ALL' ? 'Toutes' : STATUS_LABELS[s]}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        {filtered.length === 0 ? (
-          <p className="text-center text-gray-500 py-12">Aucune candidature</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Candidat</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Offre</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Statut</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map((app) => {
-                  const colors = STATUS_COLORS[app.status];
-                  return (
-                    <tr key={app.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{app.nom}</p>
-                        <p className="text-xs text-gray-500">{app.email}</p>
-                      </td>
-                      <td className="px-4 py-3 text-gray-700">{app.jobTitle}</td>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                        {new Date(app.createdAt).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
-                          style={{ backgroundColor: colors.bg, color: colors.text }}
-                        >
-                          {STATUS_LABELS[app.status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => setSelected(app)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-md text-xs font-medium"
-                        >
-                          <Eye size={14} />
-                          Détails
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {selected && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setSelected(null)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-lg font-bold mb-4" style={{ color: COLORS.midnight }}>
-              Détail candidature
-            </h2>
-            <div className="space-y-3 text-sm mb-6">
-              <p><span className="text-gray-500">Candidat :</span> <strong>{selected.nom}</strong></p>
-              <p><span className="text-gray-500">Email :</span> {selected.email}</p>
-              <p><span className="text-gray-500">Téléphone :</span> {selected.telephone}</p>
-              <p><span className="text-gray-500">Offre :</span> {selected.jobTitle}</p>
-              <p><span className="text-gray-500">CV :</span> {selected.cvFileName}</p>
-              <div>
-                <p className="text-gray-500 mb-1">Lettre de motivation :</p>
-                <p className="bg-gray-50 border border-gray-200 rounded-md p-3 text-gray-700 whitespace-pre-wrap">
-                  {selected.coverLetter}
-                </p>
-              </div>
-            </div>
-
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Modifier le statut
-            </label>
-            <select
-              value={selected.status}
-              onChange={(e) => handleStatusChange(selected, e.target.value as ApplicationStatus)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md mb-4"
-            >
-              {(Object.keys(STATUS_LABELS) as ApplicationStatus[]).map((s) => (
-                <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-              ))}
-            </select>
-
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-6 py-5">
+          <h2 className="text-lg font-bold text-gray-900">Toutes les candidatures ({candidatures.length})</h2>
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setSelected(null)}
-              className="w-full py-2.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              onClick={() => alert('Filtres à venir.')}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
             >
-              Fermer
+              <Filter size={15} />
+              Filtrer
+            </button>
+            <button
+              onClick={() => alert('Export à venir.')}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+            >
+              <Download size={15} />
+              Exporter
             </button>
           </div>
         </div>
-      )}
+
+        <div className="px-6">
+          {candidatures.map((c) => (
+            <div key={c.id} className="flex items-center justify-between gap-4 border-b border-gray-100 py-4 last:border-b-0">
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                  style={{ backgroundColor: COLORS.midnight }}
+                >
+                  {c.nom.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-gray-900">{c.nom}</p>
+                  <p className="truncate text-sm text-gray-500">
+                    {c.poste} · {c.date}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <TypeBadge type={c.type} />
+                <StatusBadge status={c.status} />
+                <button
+                  onClick={() => handleView(c)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  title="Voir le détail"
+                >
+                  <Eye size={16} />
+                </button>
+                <button
+                  onClick={() => handleAccept(c.id)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600"
+                  title="Accepter"
+                >
+                  <CircleCheck size={16} />
+                </button>
+                <button
+                  onClick={() => handleReject(c.id)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                  title="Refuser"
+                >
+                  <CircleX size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

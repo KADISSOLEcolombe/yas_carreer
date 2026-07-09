@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Lock, Mail, ShieldCheck } from 'lucide-react';
@@ -8,17 +8,17 @@ import { useAuth } from '../../../context/AuthContext';
 import { COLORS } from '../../../lib/constants';
 import { resetUsersRegistry } from '../../../lib/users';
 
-export default function AdminLoginPage() {
+export default function SuperviseurLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { loginRH, user, isLoading } = useAuth();
+  const { loginSupervisor, user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && user?.role === 'ADMIN') {
-      router.push('/admin/dashboard');
+    if (!isLoading && user?.role === 'SUPERVISOR') {
+      router.push('/superviseur/dashboard');
     }
   }, [isLoading, user, router]);
 
@@ -27,8 +27,8 @@ export default function AdminLoginPage() {
     setError('');
     setIsSubmitting(true);
     try {
-      await loginRH(email, password);
-      router.push('/admin/dashboard');
+      await loginSupervisor(email, password);
+      router.push('/superviseur/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Identifiants invalides');
     } finally {
@@ -48,39 +48,29 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
-        >
+        <Link href="/" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors">
           <ArrowLeft size={16} />
           Retour à l'accueil
         </Link>
 
         <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
           <div className="text-center mb-8">
-            <div
-              className="w-14 h-14 rounded-md flex items-center justify-center mx-auto mb-4 text-gray-900 font-bold text-lg"
-              style={{ backgroundColor: COLORS.yellow }}
-            >
+            <div className="w-14 h-14 rounded-md flex items-center justify-center mx-auto mb-4 text-gray-900 font-bold text-lg" style={{ backgroundColor: COLORS.yellow }}>
               <ShieldCheck size={28} style={{ color: COLORS.midnight }} />
             </div>
             <h2 className="text-2xl font-bold mb-2" style={{ color: COLORS.midnight }}>
-              Espace Admin
+              Espace Superviseur
             </h2>
             <p className="text-gray-600 text-sm">
-              Connexion réservée aux administrateurs système
+              Connexion réservée aux superviseurs YAS Togo
             </p>
           </div>
 
-          <div className="mb-6 bg-purple-50 border border-purple-100 rounded-md p-4 text-sm text-purple-800">
-            <p className="font-medium mb-1">Compte administrateur</p>
-            <p>Email : <strong>admin@yastogo.tg</strong></p>
-            <p>Mot de passe : <strong>admin123456</strong></p>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="mt-2 text-xs underline text-purple-600 hover:text-purple-800"
-            >
+          <div className="mb-6 bg-blue-50 border border-blue-100 rounded-md p-4 text-sm text-blue-800">
+            <p className="font-medium mb-1">Compte de démonstration</p>
+            <p>Email : <strong>superviseur@yastogo.tg</strong></p>
+            <p>Mot de passe : <strong>sup123456</strong></p>
+            <button type="button" onClick={handleReset} className="mt-2 text-xs underline text-blue-600 hover:text-blue-800">
               Réinitialiser les utilisateurs
             </button>
           </div>
@@ -93,7 +83,7 @@ export default function AdminLoginPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email administrateur</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email superviseur</label>
               <div className="relative">
                 <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
@@ -101,7 +91,7 @@ export default function AdminLoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@yastogo.tg"
+                  placeholder="superviseur@yastogo.tg"
                   className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 />
               </div>
@@ -127,24 +117,16 @@ export default function AdminLoginPage() {
               className="w-full py-3 rounded-md font-bold text-gray-900 transition-all hover:opacity-90 disabled:opacity-70"
               style={{ backgroundColor: COLORS.yellow }}
             >
-              {isSubmitting ? 'Connexion...' : 'Accéder à l\'administration'}
+              {isSubmitting ? 'Connexion...' : "Accéder à l'espace superviseur"}
             </button>
           </form>
 
-          <div className="mt-6 space-y-2 text-center text-sm text-gray-500">
-            <p>
-              Vous êtes RH ?{' '}
-              <Link href="/rh/login" className="text-blue-600 hover:text-blue-500 font-medium">
-                Espace RH
-              </Link>
-            </p>
-            <p>
-              Vous êtes candidat ?{' '}
-              <Link href="/login" className="text-blue-600 hover:text-blue-500 font-medium">
-                Connexion candidat
-              </Link>
-            </p>
-          </div>
+          <p className="mt-6 text-center text-sm text-gray-500">
+            Vous êtes RH ?{' '}
+            <Link href="/rh/login" className="text-blue-600 hover:text-blue-500 font-medium">
+              Espace RH
+            </Link>
+          </p>
         </div>
       </div>
     </div>

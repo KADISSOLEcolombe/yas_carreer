@@ -1,249 +1,134 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { UserX, Search, Filter, Eye, EyeOff, Mail, Shield } from 'lucide-react';
-import { COLORS } from '../../../lib/constants';
-import { getRegistry, saveRegistry, type StoredUser, type UserRole } from '../../../lib/users';
+import { useState } from 'react';
+import { UserPlus, Pencil, Trash2 } from 'lucide-react';
+import AdminDashboardHeader from '../../../components/admin/AdminDashboardHeader';
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  CANDIDATE: 'Candidat',
-  RECRUITER: 'RH',
-  ADMIN: 'Administrateur',
+const COLORS = {
+  midnight: '#1e3a8a',
 };
 
-const ROLE_COLORS: Record<UserRole, { bg: string; text: string }> = {
-  CANDIDATE: { bg: 'bg-blue-50', text: 'text-blue-700' },
-  RECRUITER: { bg: 'bg-purple-50', text: 'text-purple-700' },
-  ADMIN: { bg: 'bg-red-50', text: 'text-red-700' },
+type Role = 'candidate' | 'hr' | 'admin' | 'supervisor';
+type Status = 'ACTIF' | 'INACTIF';
+
+interface Utilisateur {
+  id: number;
+  nom: string;
+  email: string;
+  role: Role;
+  statut: Status;
+  date: string;
+}
+
+const ROLE_BADGE: Record<Role, { bg: string; text: string }> = {
+  candidate: { bg: '#DBEAFE', text: '#1E40AF' },
+  hr: { bg: '#FEF3C7', text: '#92400E' },
+  admin: { bg: '#EDE9FE', text: '#6D28D9' },
+  supervisor: { bg: '#D1FAE5', text: '#065F46' },
 };
+
+const STATUS_BADGE: Record<Status, { bg: string; text: string; label: string }> = {
+  ACTIF: { bg: '#D1FAE5', text: '#065F46', label: 'Actif' },
+  INACTIF: { bg: '#F3F4F6', text: '#4B5563', label: 'Inactif' },
+};
+
+// Données d'exemple en dur — à remplacer par un appel API plus tard
+const MOCK_UTILISATEURS: Utilisateur[] = [
+  { id: 1, nom: 'Candidat Demo', email: 'candidat@yas.tg', role: 'candidate', statut: 'ACTIF', date: '17/01/2025' },
+  { id: 2, nom: 'Marie Dupont', email: 'hr@yas.tg', role: 'hr', statut: 'ACTIF', date: '16/01/2025' },
+  { id: 3, nom: 'Admin YAS', email: 'admin@yas.tg', role: 'admin', statut: 'ACTIF', date: '17/01/2025' },
+  { id: 4, nom: 'Kofi Supervisor', email: 'supervisor@yas.tg', role: 'supervisor', statut: 'ACTIF', date: '15/01/2025' },
+  { id: 5, nom: 'Ama Koffi', email: 'ama@yas.tg', role: 'candidate', statut: 'INACTIF', date: '10/01/2025' },
+  { id: 6, nom: 'Kwame Tossou', email: 'kwame@yas.tg', role: 'candidate', statut: 'ACTIF', date: '12/01/2025' },
+];
+
+function RoleBadge({ role }: { role: Role }) {
+  const style = ROLE_BADGE[role];
+  return (
+    <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: style.bg, color: style.text }}>
+      {role}
+    </span>
+  );
+}
+
+function StatusBadge({ statut }: { statut: Status }) {
+  const style = STATUS_BADGE[statut];
+  return (
+    <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: style.bg, color: style.text }}>
+      {style.label}
+    </span>
+  );
+}
 
 export default function AdminAccountsPage() {
-  const [users, setUsers] = useState<StoredUser[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState<'ALL' | UserRole>('ALL');
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>(MOCK_UTILISATEURS);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = () => {
-    const registry = getRegistry();
-    setUsers(registry);
+  const handleAjouter = () => {
+    alert("Formulaire de création d'utilisateur à venir.");
   };
 
-  const handleToggleActive = (user: StoredUser) => {
-    const updatedUsers = users.map((u) =>
-      u.id === user.id ? { ...u, active: u.active === undefined ? false : !u.active } : u
-    );
-    setUsers(updatedUsers);
-    saveRegistry(updatedUsers);
+  const handleEdit = (nom: string) => {
+    alert(`Modifier « ${nom} » — formulaire à venir.`);
   };
 
-  const handleDeleteUser = (userId: string) => {
-    if (confirm('Supprimer définitivement cet utilisateur ?')) {
-      const updatedUsers = users.filter((u) => u.id !== userId);
-      setUsers(updatedUsers);
-      saveRegistry(updatedUsers);
+  const handleDelete = (id: number, nom: string) => {
+    if (confirm(`Supprimer l'utilisateur « ${nom} » ? Cette action est irréversible.`)) {
+      setUtilisateurs((prev) => prev.filter((u) => u.id !== id));
     }
   };
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = 
-      user.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesRole = filterRole === 'ALL' || user.role === filterRole;
-    
-    const isActive = user.active !== false;
-    const matchesStatus = 
-      filterStatus === 'ALL' ||
-      (filterStatus === 'ACTIVE' && isActive) ||
-      (filterStatus === 'INACTIVE' && !isActive);
-
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
-  const getRoleColor = (role: UserRole) => ROLE_COLORS[role];
-
-  const activeCount = users.filter((u) => u.active !== false).length;
-  const inactiveCount = users.filter((u) => u.active === false).length;
-
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: COLORS.midnight }}>
-            Gestion des comptes
-          </h1>
-          <p className="text-gray-600">
-            Activer, désactiver et supprimer les comptes utilisateur
-          </p>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <AdminDashboardHeader />
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-50">
-              <Mail size={20} className="text-blue-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold" style={{ color: COLORS.midnight }}>
-                {users.length}
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-6 py-5">
+          <h2 className="text-lg font-bold text-gray-900">Gestion des utilisateurs ({utilisateurs.length})</h2>
+          <button
+            onClick={handleAjouter}
+            className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
+            style={{ backgroundColor: COLORS.midnight }}
+          >
+            <UserPlus size={16} />
+            Ajouter
+          </button>
+        </div>
+
+        <div className="px-6">
+          {utilisateurs.map((u) => (
+            <div key={u.id} className="flex items-center justify-between gap-4 border-b border-gray-100 py-4 last:border-b-0">
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                  style={{ backgroundColor: COLORS.midnight }}
+                >
+                  {u.nom.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-gray-900">{u.nom}</p>
+                  <p className="truncate text-sm text-gray-500">{u.email}</p>
+                </div>
               </div>
-              <div className="text-sm text-gray-600">Total comptes</div>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-50">
-              <Eye size={20} className="text-green-600" />
+              <div className="flex shrink-0 items-center gap-3">
+                <RoleBadge role={u.role} />
+                <StatusBadge statut={u.statut} />
+                <span className="text-sm text-gray-500">{u.date}</span>
+                <button
+                  onClick={() => handleEdit(u.nom)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <Pencil size={16} />
+                </button>
+                <button
+                  onClick={() => handleDelete(u.id, u.nom)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-green-600">{activeCount}</div>
-              <div className="text-sm text-gray-600">Comptes actifs</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-50">
-              <EyeOff size={20} className="text-red-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-red-600">{inactiveCount}</div>
-              <div className="text-sm text-gray-600">Comptes désactivés</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white">
-            <Search size={18} className="text-gray-400" />
-            <input
-              type="text"
-              placeholder="Rechercher un nom ou email"
-              className="flex-1 outline-none text-gray-900"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white">
-            <Filter size={18} className="text-gray-400" />
-            <select 
-              className="outline-none text-gray-900 bg-transparent"
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value as 'ALL' | UserRole)}
-            >
-              <option value="ALL">Tous les rôles</option>
-              <option value="CANDIDATE">Candidats</option>
-              <option value="RECRUITER">RH</option>
-              <option value="ADMIN">Admins</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white">
-            <Filter size={18} className="text-gray-400" />
-            <select 
-              className="outline-none text-gray-900 bg-transparent"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as 'ALL' | 'ACTIVE' | 'INACTIVE')}
-            >
-              <option value="ALL">Tous les statuts</option>
-              <option value="ACTIVE">Actifs</option>
-              <option value="INACTIVE">Désactivés</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Users Table */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">Utilisateur</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">Email</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">Rôle</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-600">Statut</th>
-                <th className="text-right px-6 py-3 font-medium text-gray-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    Aucun utilisateur trouvé
-                  </td>
-                </tr>
-              ) : (
-                filteredUsers.map((user) => {
-                  const isActive = user.active !== false;
-                  const roleColor = getRoleColor(user.role);
-                  return (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: COLORS.midnight }}>
-                            {user.nom.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{user.nom}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">{user.email}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${roleColor.bg} ${roleColor.text}`}
-                        >
-                          {ROLE_LABELS[user.role]}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            isActive ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                          }`}
-                        >
-                          {isActive ? 'Actif' : 'Désactivé'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleToggleActive(user)}
-                            className="p-2 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
-                            title={isActive ? 'Désactiver' : 'Activer'}
-                          >
-                            {isActive ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-md"
-                            title="Supprimer"
-                          >
-                            <UserX size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+          ))}
         </div>
       </div>
     </div>

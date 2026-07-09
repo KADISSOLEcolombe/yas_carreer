@@ -1,13 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Upload, FileText, CheckCircle } from 'lucide-react';
-import { hasApplied, saveApplication } from '../lib/applications';
-import { sendNotification } from '../lib/notifications';
+import { ChevronDown, X } from 'lucide-react';
 
 const COLORS = {
-  yellow: '#FFD100',
-  midnight: '#00377D',
+  midnight: '#1e3a8a',
+  yellow: '#facc15',
 };
 
 interface ApplicationModalProps {
@@ -20,37 +18,32 @@ interface ApplicationModalProps {
   userEmail: string;
 }
 
+const NIVEAUX_ETUDE = ['Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'];
+const DOMAINES_ETUDE = ['Informatique', 'Gestion', 'Marketing', 'Finance', 'Ressources Humaines', 'Autre'];
+
 export default function ApplicationModal({
   isOpen,
   onClose,
-  jobId,
   jobTitle,
-  userId,
-  userNom,
   userEmail,
 }: ApplicationModalProps) {
-  const [nom, setNom] = useState(userNom);
+  const [nom, setNom] = useState('');
+  const [prenoms, setPrenoms] = useState('');
   const [email, setEmail] = useState(userEmail);
   const [telephone, setTelephone] = useState('');
-  const [coverLetter, setCoverLetter] = useState('');
+  const [sexe, setSexe] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const [lettreFile, setLettreFile] = useState<File | null>(null);
+  const [anneesExperience, setAnneesExperience] = useState('');
+  const [niveauEtude, setNiveauEtude] = useState('');
+  const [domaineEtudes, setDomaineEtudes] = useState('');
+  const [villeResidence, setVilleResidence] = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      setNom(userNom);
       setEmail(userEmail);
-      setTelephone('');
-      setCoverLetter('');
-      setCvFile(null);
-      setError('');
-      setIsSuccess(false);
-      setAlreadyApplied(hasApplied(userId, jobId));
     }
-  }, [isOpen, userNom, userEmail, userId, jobId]);
+  }, [isOpen, userEmail]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -67,227 +60,276 @@ export default function ApplicationModal({
 
   if (!isOpen) return null;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ];
-    if (!allowedTypes.includes(file.type)) {
-      setError('Format non accepté. Veuillez envoyer un fichier PDF ou Word.');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Le fichier ne doit pas dépasser 5 Mo.');
-      return;
-    }
-    setError('');
-    setCvFile(file);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (!telephone.trim()) {
-      setError('Veuillez renseigner votre numéro de téléphone.');
-      return;
-    }
-    if (!cvFile) {
-      setError('Veuillez joindre votre CV.');
-      return;
-    }
-    if (!coverLetter.trim()) {
-      setError('Veuillez rédiger une lettre de motivation.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      saveApplication({
-        userId,
-        jobId,
-        jobTitle,
-        nom: nom.trim(),
-        email: email.trim(),
-        telephone: telephone.trim(),
-        coverLetter: coverLetter.trim(),
-        cvFileName: cvFile.name,
-      });
-      sendNotification({
-        userId: 'rh-1',
-        title: 'Nouvelle candidature',
-        message: `${nom.trim()} a postulé pour « ${jobTitle} ».`,
-        type: 'APPLICATION',
-      });
-      setIsSuccess(true);
-      setTimeout(() => onClose(), 2000);
-    } catch {
-      setError('Une erreur est survenue. Veuillez réessayer.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    // L'envoi réel de la candidature sera branché plus tard.
   };
+
+  const inputClass =
+    'w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent';
+  const labelClass = 'mb-1.5 block text-sm font-medium text-gray-700';
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl border-b border-gray-200 bg-white px-6 py-4">
           <div>
             <h2 className="text-lg font-bold" style={{ color: COLORS.midnight }}>
               Postuler à cette offre
             </h2>
-            <p className="text-sm text-gray-500 mt-0.5">{jobTitle}</p>
+            <p className="mt-0.5 text-sm text-gray-500">{jobTitle}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
+            className="rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="p-6">
-          {alreadyApplied ? (
-            <div className="text-center py-8">
-              <CheckCircle size={48} className="mx-auto text-green-500 mb-4" />
-              <h3 className="text-lg font-semibold mb-2" style={{ color: COLORS.midnight }}>
-                Candidature déjà envoyée
-              </h3>
-              <p className="text-gray-600 text-sm mb-6">
-                Vous avez déjà postulé à cette offre. Consultez le suivi dans votre espace candidat.
-              </p>
-              <button
-                onClick={onClose}
-                className="px-6 py-2.5 rounded-md font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Fermer
-              </button>
+        <form onSubmit={handleSubmit} className="space-y-6 p-6">
+          {/* Nom / Prénoms */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div>
+              <label className={labelClass}>
+                Nom <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={nom}
+                onChange={(e) => setNom(e.target.value)}
+                className={inputClass}
+              />
             </div>
-          ) : isSuccess ? (
-            <div className="text-center py-8">
-              <CheckCircle size={48} className="mx-auto text-green-500 mb-4" />
-              <h3 className="text-lg font-semibold mb-2" style={{ color: COLORS.midnight }}>
-                Candidature envoyée !
-              </h3>
-              <p className="text-gray-600 text-sm">
-                Votre candidature a bien été enregistrée. Vous pouvez suivre son évolution dans votre espace.
+            <div>
+              <label className={labelClass}>
+                Prénoms <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={prenoms}
+                onChange={(e) => setPrenoms(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          {/* E-mail / Téléphone */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div>
+              <label className={labelClass}>
+                E-mail <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClass}
+              />
+              <p className="mt-1.5 text-xs text-gray-400">
+                Les notifications vous seront envoyées sur ce mail. Assurez-vous, svp, qu&apos;il soit fonctionnel.
               </p>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-md px-4 py-3">
-                  {error}
+            <div>
+              <label className={labelClass}>
+                Numéro de téléphone <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-stretch overflow-hidden rounded-xl border border-gray-200 bg-gray-50 focus-within:ring-2 focus-within:ring-yellow-400">
+                <div className="flex items-center gap-1 border-r border-gray-200 bg-gray-100 px-3 text-sm text-gray-700">
+                  <span>🇹🇬</span>
+                  <span>+228</span>
+                  <ChevronDown size={14} />
                 </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Nom complet
-                </label>
-                <input
-                  type="text"
-                  value={nom}
-                  onChange={(e) => setNom(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Adresse e-mail
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Téléphone <span className="text-red-500">*</span>
-                </label>
                 <input
                   type="tel"
+                  required
                   value={telephone}
                   onChange={(e) => setTelephone(e.target.value)}
-                  placeholder="+228 90 00 00 00"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                  placeholder="90 11 23 45"
+                  className="flex-1 bg-transparent px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none"
                 />
               </div>
+            </div>
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  CV <span className="text-red-500">*</span>
-                </label>
-                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
-                  {cvFile ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <FileText size={20} style={{ color: COLORS.midnight }} />
-                      <span className="font-medium">{cvFile.name}</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center text-gray-500">
-                      <Upload size={24} className="mb-2" />
-                      <span className="text-sm">Cliquez pour joindre votre CV</span>
-                      <span className="text-xs mt-1">PDF ou Word, max 5 Mo</span>
-                    </div>
-                  )}
+          {/* Sexe */}
+          <div>
+            <label className={labelClass}>
+              Sexe <span className="text-red-500">*</span>
+            </label>
+            <div className="flex items-center gap-8">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="radio"
+                  name="sexe"
+                  value="Masculin"
+                  checked={sexe === 'Masculin'}
+                  onChange={(e) => setSexe(e.target.value)}
+                  style={{ accentColor: COLORS.midnight }}
+                  className="h-4 w-4"
+                />
+                Masculin
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="radio"
+                  name="sexe"
+                  value="Féminin"
+                  checked={sexe === 'Féminin'}
+                  onChange={(e) => setSexe(e.target.value)}
+                  style={{ accentColor: COLORS.midnight }}
+                  className="h-4 w-4"
+                />
+                Féminin
+              </label>
+            </div>
+          </div>
+
+          {/* CV / Lettre de motivation */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div>
+              <label className={labelClass}>
+                CV et Portfolio <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <label
+                  className="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: COLORS.midnight }}
+                >
+                  Choisir un fichier
                   <input
                     type="file"
+                    required
                     accept=".pdf,.doc,.docx"
-                    onChange={handleFileChange}
+                    onChange={(e) => setCvFile(e.target.files?.[0] || null)}
                     className="hidden"
                   />
                 </label>
+                <span className="truncate text-sm text-gray-500">{cvFile ? cvFile.name : 'Aucun fichier choisi'}</span>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Lettre de motivation <span className="text-red-500">*</span>
+              <p className="mt-1.5 text-xs text-gray-400">La taille du fichier ne doit pas dépasser 5MB</p>
+            </div>
+            <div>
+              <label className={labelClass}>Lettre de Motivation</label>
+              <div className="flex items-center gap-3">
+                <label
+                  className="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: COLORS.midnight }}
+                >
+                  Choisir un fichier
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => setLettreFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
                 </label>
-                <textarea
-                  value={coverLetter}
-                  onChange={(e) => setCoverLetter(e.target.value)}
-                  rows={5}
-                  placeholder="Présentez-vous et expliquez pourquoi vous êtes le candidat idéal pour ce poste..."
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent resize-none"
-                />
+                <span className="truncate text-sm text-gray-500">
+                  {lettreFile ? lettreFile.name : 'Aucun fichier choisi'}
+                </span>
               </div>
+            </div>
+          </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 px-4 py-3 rounded-md font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+          {/* Expérience / Niveau d'étude / Domaine d'études */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            <div>
+              <label className={labelClass}>
+                Années d&apos;expérience <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                required
+                value={anneesExperience}
+                onChange={(e) => setAnneesExperience(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>
+                Niveau d&apos;étude <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  required
+                  value={niveauEtude}
+                  onChange={(e) => setNiveauEtude(e.target.value)}
+                  className={`${inputClass} appearance-none pr-9`}
                 >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-3 rounded-md font-bold text-gray-900 transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: COLORS.yellow }}
-                >
-                  {isSubmitting ? 'Envoi en cours...' : 'Envoyer ma candidature'}
-                </button>
+                  <option value="" disabled>
+                    Sélectionner une option
+                  </option>
+                  {NIVEAUX_ETUDE.map((niveau) => (
+                    <option key={niveau} value={niveau}>
+                      {niveau}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
               </div>
-            </form>
-          )}
-        </div>
+            </div>
+            <div>
+              <label className={labelClass}>
+                Domaine d&apos;études <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  required
+                  value={domaineEtudes}
+                  onChange={(e) => setDomaineEtudes(e.target.value)}
+                  className={`${inputClass} appearance-none pr-9`}
+                >
+                  <option value="" disabled>
+                    Sélectionner une option
+                  </option>
+                  {DOMAINES_ETUDE.map((domaine) => (
+                    <option key={domaine} value={domaine}>
+                      {domaine}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Ville de résidence */}
+          <div>
+            <label className={labelClass}>
+              Ville de résidence <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={villeResidence}
+              onChange={(e) => setVilleResidence(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+
+          <div className="flex gap-3 border-t border-gray-200 pt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              className="flex-1 rounded-lg px-4 py-3 font-bold text-gray-900 shadow-sm transition-opacity hover:opacity-90"
+              style={{ backgroundColor: COLORS.yellow }}
+            >
+              Envoyer ma candidature
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

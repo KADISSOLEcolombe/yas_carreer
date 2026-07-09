@@ -80,46 +80,46 @@ export default function JobOfferCard({ job }: JobOfferCardProps) {
   const applicants = getApplicantsCount(job);
 
   return (
-    <article className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-[#003F8C]">
-          <Icon size={21} />
+    <article className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm transition-shadow hover:shadow-md">
+      <div className="mb-2.5 flex items-start justify-between gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-[#003F8C]">
+          <Icon size={16} />
         </div>
         <span
-          className="inline-flex rounded-full px-3.5 py-1 text-[13px] font-bold leading-none"
+          className="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold leading-none"
           style={{ backgroundColor: typeStyle.bg, color: typeStyle.text }}
         >
           {job.type}
         </span>
       </div>
 
-      <h3 className="mb-1 text-[1.45rem] font-bold leading-tight text-slate-900 md:text-[1.45rem]">
+      <h3 className="mb-0.5 text-[0.95rem] font-bold leading-tight text-slate-900">
         {job.title}
       </h3>
-      <p className="mb-4 text-[1.15rem] text-slate-600 md:text-[1.15rem]">{getCategoryLabel(job)}</p>
+      <p className="mb-2 text-[0.75rem] text-slate-500">{getCategoryLabel(job)}</p>
 
-      <div className="mb-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[1rem] text-slate-600 md:text-[1rem]">
-        <span className="inline-flex items-center gap-1.5">
-          <MapPin size={16} /> {job.location}, Togo
+      <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-slate-500">
+        <span className="inline-flex items-center gap-1">
+          <MapPin size={12} /> {job.location}, Togo
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Clock3 size={16} /> Clôture : {closingDate}
+        <span className="inline-flex items-center gap-1">
+          <Clock3 size={12} /> Clôture : {closingDate}
         </span>
       </div>
 
-      <div className="mb-4 inline-flex items-center gap-2 text-[1rem] text-slate-600 md:text-[1rem]">
-        <Users size={16} /> {applicants} candidatures
+      <div className="mb-2 inline-flex items-center gap-1 text-[0.7rem] text-slate-500">
+        <Users size={12} /> {applicants} candidatures
       </div>
 
-      <p className="mb-4 text-[1.6rem] font-extrabold text-[#003F8C] md:text-[1.6rem]">{job.salary || 'À discuter'}</p>
+      <p className="mb-2 text-[0.95rem] font-extrabold text-[#003F8C]">{job.salary || 'À discuter'}</p>
 
-      <div className="flex items-center justify-between border-t border-slate-200 pt-3.5 text-[0.95rem] text-slate-600 md:text-[0.95rem]">
+      <div className="flex items-center justify-between border-t border-slate-200 pt-2 text-[0.7rem] text-slate-400">
         <span>Publié le {publishedDate}</span>
         <Link
           href={`/offres/${job.id}`}
-          className="inline-flex items-center gap-1.5 font-bold text-[#003F8C] hover:opacity-80"
+          className="inline-flex items-center gap-1 font-bold text-[#003F8C] hover:opacity-80"
         >
-          Voir <ChevronRight size={18} />
+          Voir <ChevronRight size={14} />
         </Link>
       </div>
     </article>

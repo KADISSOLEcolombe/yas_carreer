@@ -1,168 +1,145 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, User, Briefcase, Clock, LogOut, CheckCircle, XCircle, Eye, Users } from 'lucide-react';
-import { getUserApplications, STATUS_LABELS, type Application } from '../../lib/applications';
-import { getNotificationsForUser } from '../../lib/notifications';
+import { Search, Menu, AlertCircle, CheckCircle, XCircle, Calendar, Briefcase } from 'lucide-react';
+import CandidateSidebar, { type CandidateTab } from '../../components/CandidateSidebar';
 
 const COLORS = {
-  yellow: '#FFD100',
-  midnight: '#00377D',
-  sky: '#5F99D2',
-  text: {
-    primary: '#1A1A1A',
-    secondary: '#4B5563',
-    muted: '#9CA3AF',
-  },
-  border: '#E5E7EB',
+  midnight: '#1e3a8a',
+  yellow: '#facc15',
+  green: '#16a34a',
 };
 
-// Header Component
-function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, logout, isAuthenticated } = useAuth();
-  const router = useRouter();
+type CandidatureStatus = 'ENTRETIEN' | 'EN_COURS' | 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE';
+type ContractType = 'CDI' | 'CDD' | 'Stage';
 
+const STATUS_STYLES: Record<CandidatureStatus, { bg: string; text: string; label: string; icon: typeof Calendar }> = {
+  ENTRETIEN: { bg: '#EDE9FE', text: '#6D28D9', label: 'Entretien planifié', icon: Calendar },
+  EN_COURS: { bg: '#DBEAFE', text: '#1E40AF', label: 'En cours', icon: AlertCircle },
+  EN_ATTENTE: { bg: '#FEF3C7', text: '#92400E', label: 'En attente', icon: AlertCircle },
+  ACCEPTEE: { bg: '#D1FAE5', text: '#065F46', label: 'Acceptée', icon: CheckCircle },
+  REFUSEE: { bg: '#FEE2E2', text: '#DC2626', label: 'Refusée', icon: XCircle },
+};
+
+const TYPE_BADGE: Record<ContractType, { bg: string; text: string }> = {
+  CDI: { bg: COLORS.midnight, text: '#FFFFFF' },
+  CDD: { bg: '#F6A800', text: '#FFFFFF' },
+  Stage: { bg: '#5F99D2', text: '#FFFFFF' },
+};
+
+// Données d'exemple en dur — à remplacer par un appel API plus tard
+const MOCK_CANDIDATURES: { id: number; poste: string; date: string; status: CandidatureStatus; type: ContractType }[] = [
+  { id: 1, poste: 'Développeur Full Stack', date: '14/01/2025', status: 'ENTRETIEN', type: 'CDI' },
+  { id: 2, poste: 'Stage – Analyste Business', date: '12/01/2025', status: 'EN_COURS', type: 'Stage' },
+  { id: 3, poste: 'Chargé(e) de Communication', date: '13/01/2025', status: 'EN_ATTENTE', type: 'CDI' },
+];
+
+type EntretienType = 'Présentiel' | 'Visio';
+
+const ENTRETIEN_TYPE_STYLES: Record<EntretienType, { bg: string; text: string }> = {
+  Présentiel: { bg: '#D1FAE5', text: '#065F46' },
+  Visio: { bg: '#DBEAFE', text: '#1E40AF' },
+};
+
+const MOCK_ENTRETIENS: { id: number; poste: string; date: string; heure: string; avec: string; type: EntretienType }[] = [
+  { id: 1, poste: 'Développeur Full Stack', date: '21/01/2025', heure: '10:00', avec: 'Marie Dupont', type: 'Présentiel' },
+  { id: 2, poste: 'Stage – Analyste Business', date: '22/01/2025', heure: '14:30', avec: 'Jean Agbo', type: 'Visio' },
+];
+
+const MOCK_NOTIFICATIONS = [
+  {
+    id: 1,
+    titre: 'Entretien planifié',
+    message: 'Un entretien a été planifié pour votre candidature « Développeur Full Stack ».',
+    date: '15/01/2025',
+  },
+  {
+    id: 2,
+    titre: 'Candidature reçue',
+    message: 'Votre candidature pour « Chargé(e) de Communication » a bien été reçue.',
+    date: '13/01/2025',
+  },
+];
+
+function StatusBadge({ status }: { status: CandidatureStatus }) {
+  const style = STATUS_STYLES[status];
+  const Icon = style.icon;
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-3">
-            <div
-              className="w-10 h-10 rounded-md flex items-center justify-center text-white font-bold text-xl"
-              style={{ backgroundColor: COLORS.yellow }}
-            >
-              YT
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg leading-tight" style={{ color: COLORS.midnight }}>
-                YAS Togo
-              </span>
-              <span className="text-xs leading-tight" style={{ color: COLORS.text.muted }}>
-                Nos offres d'emploi
-              </span>
-            </div>
-          </Link>
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+      style={{ backgroundColor: style.bg, color: style.text }}
+    >
+      <Icon size={14} />
+      {style.label}
+    </span>
+  );
+}
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-8">
-            <Link href="/offres" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              Nos offres
-            </Link>
-            <Link href="/a-propos" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              À propos
-            </Link>
-          </nav>
+function EntretienTypeBadge({ type }: { type: EntretienType }) {
+  const style = ENTRETIEN_TYPE_STYLES[type];
+  return (
+    <span
+      className="inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
+      style={{ backgroundColor: style.bg, color: style.text }}
+    >
+      {type}
+    </span>
+  );
+}
 
-          {/* Buttons */}
-          <div className="hidden sm:flex items-center space-x-4">
-            {isAuthenticated ? (
-              <>
-                <Link
-                  href="/profil"
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 font-medium transition-colors"
-                >
-                  <Users size={18} />
-                  Mon espace
-                </Link>
-                <button
-                  onClick={logout}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 font-medium transition-colors"
-                >
-                  <LogOut size={18} />
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="px-5 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 font-medium transition-colors"
-                >
-                  Se connecter
-                </Link>
-                <Link
-                  href="/register"
-                  className="px-5 py-2 text-gray-900 rounded-md font-medium transition-all hover:opacity-90"
-                  style={{ backgroundColor: COLORS.yellow }}
-                >
-                  Créer un compte
-                </Link>
-              </>
-            )}
-          </div>
+function TypeBadge({ type }: { type: ContractType }) {
+  const style = TYPE_BADGE[type];
+  return (
+    <span
+      className="inline-flex rounded-full px-3 py-1 text-xs font-bold"
+      style={{ backgroundColor: style.bg, color: style.text }}
+    >
+      {type}
+    </span>
+  );
+}
 
-          {/* Mobile Menu Button */}
-          <button
-            className="lg:hidden p-2 text-gray-600 hover:text-gray-900"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
-            )}
-          </button>
+function CandidatureRow({
+  poste,
+  date,
+  status,
+  type,
+}: {
+  poste: string;
+  date: string;
+  status: CandidatureStatus;
+  type: ContractType;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-gray-100 py-4 last:border-b-0">
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100"
+          style={{ color: COLORS.midnight }}
+        >
+          <Briefcase size={18} />
         </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <nav className="lg:hidden py-4 border-t border-gray-200 space-y-2">
-            <Link href="/offres" className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md">
-              Nos offres
-            </Link>
-            <Link href="/a-propos" className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md">
-              À propos
-            </Link>
-            <div className="pt-2 mt-2 border-t border-gray-200">
-              {isAuthenticated ? (
-                <>
-                  <Link
-                    href="/profil"
-                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md mb-2"
-                  >
-                    Mon espace
-                  </Link>
-                  <button
-                    onClick={logout}
-                    className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
-                  >
-                    Déconnexion
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md mb-2"
-                  >
-                    Se connecter
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="block px-3 py-2 text-gray-900 rounded-md text-center font-medium"
-                    style={{ backgroundColor: COLORS.yellow }}
-                  >
-                    Créer un compte
-                  </Link>
-                </>
-              )}
-            </div>
-          </nav>
-        )}
+        <div className="min-w-0">
+          <p className="truncate font-bold text-gray-900">{poste}</p>
+          <p className="text-sm text-gray-500">Postulé le {date}</p>
+        </div>
       </div>
-    </header>
+      <div className="flex shrink-0 items-center gap-2">
+        <TypeBadge type={type} />
+        <StatusBadge status={status} />
+      </div>
+    </div>
   );
 }
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, isLoading, isRecruiter, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, isRecruiter } = useAuth();
   const router = useRouter();
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [notifications, setNotifications] = useState<ReturnType<typeof getNotificationsForUser>>([]);
+  const [activeTab, setActiveTab] = useState<CandidateTab>('apercu');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -173,214 +150,183 @@ export default function ProfilePage() {
     }
   }, [isAuthenticated, isLoading, isRecruiter, router]);
 
-  useEffect(() => {
-    if (user) {
-      setApplications(getUserApplications(user.id));
-      setNotifications(getNotificationsForUser(user.id));
-    }
-  }, [user]);
-
-  const getStatusColor = (status: string) => {
-    const label = STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status;
-    switch (status) {
-      case 'PENDING':
-        return { bg: '#FFF7D6', text: '#854D0E', label };
-      case 'IN_REVIEW':
-        return { bg: '#DBEAFE', text: '#1E40AF', label };
-      case 'INTERVIEW':
-        return { bg: '#EDE9FE', text: '#6D28D9', label };
-      case 'ACCEPTED':
-        return { bg: '#D1FAE5', text: '#065F46', label };
-      case 'REJECTED':
-        return { bg: '#FEE2E2', text: '#DC2626', label };
-      default:
-        return { bg: '#F3F4F6', text: '#4B5563', label };
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-      case 'IN_REVIEW':
-        return <Clock size={16} />;
-      case 'INTERVIEW':
-        return <Eye size={16} />;
-      case 'ACCEPTED':
-        return <CheckCircle size={16} />;
-      case 'REJECTED':
-        return <XCircle size={16} />;
-      default:
-        return null;
-    }
-  };
-
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen pt-20 flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2" style={{ borderColor: COLORS.midnight }}></div>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-t-2 border-b-2"
+          style={{ borderColor: COLORS.midnight }}
+        />
       </div>
     );
   }
 
+  const initial = user?.nom?.charAt(0).toUpperCase() || 'C';
+  const stats = [
+    { label: 'Candidatures', value: MOCK_CANDIDATURES.length, bg: COLORS.midnight, text: '#FFFFFF' },
+    {
+      label: 'Entretiens',
+      value: MOCK_CANDIDATURES.filter((c) => c.status === 'ENTRETIEN').length,
+      bg: COLORS.yellow,
+      text: COLORS.midnight,
+    },
+    {
+      label: 'Acceptées',
+      value: MOCK_CANDIDATURES.filter((c) => c.status === 'ACCEPTEE').length,
+      bg: COLORS.green,
+      text: '#FFFFFF',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="pt-20 pb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 transition-colors">
-            <ArrowLeft size={16} />
-            Retour à l'accueil
-          </Link>
+    <div className="flex min-h-screen bg-gray-50">
+      <CandidateSidebar
+        activeTab={activeTab}
+        onSelect={setActiveTab}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Sidebar */}
-            <div className="lg:col-span-1">
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 sticky top-24">
-                <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-                  <div 
-                    className="w-14 h-14 rounded-full flex items-center justify-center text-gray-900 text-xl font-bold"
-                    style={{ backgroundColor: COLORS.yellow }}
-                  >
-                    {user?.nom.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate">{user?.nom}</h3>
-                    <p className="text-sm text-gray-500 truncate">{user?.email}</p>
-                  </div>
-                </div>
-                
-                <nav className="space-y-1">
-                  <div 
-                    className="flex items-center gap-3 px-4 py-3 rounded-md font-bold text-gray-900 shadow-sm"
-                    style={{ backgroundColor: COLORS.yellow }}
-                  >
-                    <Briefcase size={18} />
-                    Mes candidatures
-                  </div>
-                  <div 
-                    className="flex items-center gap-3 px-4 py-3 rounded-md text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    <User size={18} />
-                    Mon profil
-                  </div>
-                </nav>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Barre mobile */}
+        <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 text-gray-600">
+            <Menu size={22} />
+          </button>
+          <span className="font-semibold" style={{ color: COLORS.midnight }}>
+            Espace candidat
+          </span>
+        </header>
 
-                <div className="mt-6 pt-6 border-t border-gray-100">
-                  <button
-                    onClick={logout}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-left rounded-md text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    <LogOut size={18} />
-                    Déconnexion
-                  </button>
-                </div>
+        <main className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
+          {/* En-tête */}
+          <div
+            className="flex flex-col gap-4 rounded-2xl p-6 sm:flex-row sm:items-center sm:justify-between"
+            style={{ backgroundColor: COLORS.midnight }}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-xl font-bold"
+                style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
+              >
+                {initial}
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white sm:text-2xl">Bonjour, {user?.nom || 'Candidat'} 👋</h1>
+                <p className="text-sm text-blue-100">Espace candidat · YAS TOGO</p>
               </div>
             </div>
-
-            {/* Main Content */}
-            <div className="lg:col-span-3">
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-                  <div>
-                    <h1 className="text-2xl font-bold mb-1" style={{ color: COLORS.midnight }}>
-                      Mes candidatures
-                    </h1>
-                    <p style={{ color: COLORS.text.secondary }}>
-                      {applications.length} candidature{applications.length > 1 ? 's' : ''} en cours
-                    </p>
-                  </div>
-                  <Link
-                    href="/offres"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md font-bold text-gray-900 transition-all hover:opacity-90 shadow-sm"
-                    style={{ backgroundColor: COLORS.yellow }}
-                  >
-                    <Briefcase size={18} />
-                    Trouver de nouvelles offres
-                  </Link>
-                </div>
-
-                {applications.length === 0 ? (
-                  <div className="text-center py-12 border border-gray-200 rounded-lg bg-gray-50">
-                    <Briefcase size={40} className="mx-auto text-gray-400 mb-4" />
-                    <h3 className="text-lg font-semibold mb-2" style={{ color: COLORS.text.primary }}>
-                      Aucune candidature pour le moment
-                    </h3>
-                    <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                      Commencez à postuler à des offres pour suivre l'évolution de vos candidatures depuis cette page.
-                    </p>
-                    <Link
-                      href="/offres"
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-md font-bold text-gray-900 transition-all hover:opacity-90 shadow-sm"
-                      style={{ backgroundColor: COLORS.yellow }}
-                    >
-                      Découvrir les offres
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {applications.map((app) => {
-                      const statusInfo = getStatusColor(app.status);
-                      return (
-                        <div key={app.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-sm transition-shadow">
-                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-lg mb-1" style={{ color: COLORS.text.primary }}>
-                                {app.jobTitle}
-                              </h4>
-                              <p className="text-sm text-gray-500 mb-3">
-                                Candidature envoyée le {new Date(app.createdAt).toLocaleDateString('fr-FR')}
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <span 
-                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                                  style={{ backgroundColor: statusInfo.bg, color: statusInfo.text }}
-                                >
-                                  {getStatusIcon(app.status)}
-                                  {statusInfo.label}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Link
-                                href={`/offres/${app.jobId}`}
-                                className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                              >
-                                <Eye size={16} />
-                                Voir l'offre
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {notifications.length > 0 && (
-                  <div className="mt-8 pt-8 border-t border-gray-200">
-                    <h2 className="text-lg font-semibold mb-4" style={{ color: COLORS.midnight }}>
-                      Mes notifications
-                    </h2>
-                    <div className="space-y-3">
-                      {notifications.slice(0, 5).map((n) => (
-                        <div
-                          key={n.id}
-                          className={`border rounded-lg p-4 ${n.read ? 'border-gray-100 bg-gray-50' : 'border-blue-100 bg-blue-50'}`}
-                        >
-                          <p className="font-medium text-gray-900 text-sm">{n.title}</p>
-                          <p className="text-sm text-gray-600 mt-1">{n.message}</p>
-                          <p className="text-xs text-gray-400 mt-2">
-                            {new Date(n.createdAt).toLocaleString('fr-FR')}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <Link
+              href="/offres"
+              className="inline-flex items-center justify-center gap-2 self-start rounded-xl px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90 sm:self-auto"
+              style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
+            >
+              <Search size={16} />
+              Voir les offres
+            </Link>
           </div>
-        </div>
+
+          {/* Contenu de l'onglet Aperçu */}
+          {activeTab === 'apercu' && (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {stats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-2xl p-6 text-center shadow-sm"
+                    style={{ backgroundColor: stat.bg }}
+                  >
+                    <p className="text-4xl font-extrabold" style={{ color: stat.text }}>
+                      {stat.value}
+                    </p>
+                    <p className="mt-1 text-sm font-medium" style={{ color: stat.text }}>
+                      {stat.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                <h2 className="border-b border-gray-100 px-6 py-5 text-lg font-bold text-gray-900">
+                  Dernières candidatures
+                </h2>
+                <div className="px-6">
+                  {MOCK_CANDIDATURES.map((c) => (
+                    <CandidatureRow key={c.id} poste={c.poste} date={c.date} status={c.status} type={c.type} />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Contenu de l'onglet Mes candidatures */}
+          {activeTab === 'candidatures' && (
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+              <h2 className="border-b border-gray-100 px-6 py-5 text-lg font-bold text-gray-900">
+                Mes candidatures ({MOCK_CANDIDATURES.length})
+              </h2>
+              <div className="px-6">
+                {MOCK_CANDIDATURES.map((c) => (
+                  <CandidatureRow key={c.id} poste={c.poste} date={c.date} status={c.status} type={c.type} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Contenu de l'onglet Mes entretiens */}
+          {activeTab === 'entretiens' && (
+            <div>
+              <h2 className="mb-4 text-lg font-bold text-gray-900">Mes entretiens ({MOCK_ENTRETIENS.length})</h2>
+              {MOCK_ENTRETIENS.length === 0 ? (
+                <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
+                  <p className="text-sm text-gray-500">Aucun entretien planifié pour le moment.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {MOCK_ENTRETIENS.map((entretien) => (
+                    <div
+                      key={entretien.id}
+                      className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100"
+                          style={{ color: COLORS.midnight }}
+                        >
+                          <Calendar size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-bold text-gray-900">{entretien.poste}</p>
+                          <p className="text-sm text-gray-500">
+                            {entretien.date} à {entretien.heure}
+                          </p>
+                          <p className="text-sm text-gray-500">Avec {entretien.avec}</p>
+                        </div>
+                      </div>
+                      <EntretienTypeBadge type={entretien.type} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contenu de l'onglet Notifications */}
+          {activeTab === 'notifications' && (
+            <div className="rounded-2xl bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-bold text-gray-900">Notifications</h2>
+              <div className="space-y-3">
+                {MOCK_NOTIFICATIONS.map((n) => (
+                  <div key={n.id} className="rounded-xl bg-gray-50 px-5 py-4">
+                    <p className="font-semibold text-gray-900">{n.titre}</p>
+                    <p className="mt-1 text-sm text-gray-600">{n.message}</p>
+                    <p className="mt-2 text-xs text-gray-400">{n.date}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

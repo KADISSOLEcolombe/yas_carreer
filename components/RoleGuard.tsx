@@ -24,6 +24,8 @@ export default function RoleGuard({ allowedRoles, redirectTo, children }: RoleGu
     if (user && !allowedRoles.includes(user.role)) {
       if (user.role === 'RECRUITER' || user.role === 'ADMIN') {
         router.push('/rh/dashboard');
+      } else if (user.role === 'SUPERVISOR') {
+        router.push('/superviseur/dashboard');
       } else {
         router.push('/profil');
       }

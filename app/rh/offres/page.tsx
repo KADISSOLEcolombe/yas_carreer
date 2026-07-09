@@ -87,7 +87,7 @@ export default function RHOffresPage() {
 
   return (
     <div className="space-y-10">
-      <div className="overflow-hidden rounded-[28px] border border-blue-900/10 bg-white shadow-[0_18px_60px_rgba(0,55,125,0.16)]">
+      <div className="overflow-hidden rounded-[28px] border bor     der-blue-900/10 bg-white shadow-[0_18px_60px_rgba(0,55,125,0.16)]">
         <div className="grid min-h-[760px] lg:grid-cols-[1.02fr_1fr]">
           <div className="relative overflow-hidden bg-[#3E61B8] px-8 py-10 text-white sm:px-12 lg:px-14">
             <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.10) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />

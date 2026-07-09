@@ -1,4 +1,4 @@
-export type UserRole = 'CANDIDATE' | 'RECRUITER' | 'ADMIN';
+export type UserRole = 'CANDIDATE' | 'RECRUITER' | 'ADMIN' | 'SUPERVISOR';
 
 export interface StoredUser {
   id: string;
@@ -33,6 +33,14 @@ const SEED_USERS: StoredUser[] = [
     email: 'admin@yastogo.tg',
     password: 'admin123456',
     role: 'ADMIN',
+    active: true,
+  },
+  {
+    id: 'sup-1',
+    nom: 'Superviseur YAS',
+    email: 'superviseur@yastogo.tg',
+    password: 'sup123456',
+    role: 'SUPERVISOR',
     active: true,
   },
 ];
@@ -179,6 +187,9 @@ export function authenticateUser(
     console.log('authenticateUser: rôle non autorisé', user.role, allowedRoles);
     if (user.role === 'RECRUITER' || user.role === 'ADMIN') {
       throw new Error('Utilisez l\'espace RH pour vous connecter');
+    }
+    if (user.role === 'SUPERVISOR') {
+      throw new Error('Utilisez l\'espace superviseur pour vous connecter');
     }
     throw new Error('Ce compte n\'a pas accès à l\'espace RH');
   }

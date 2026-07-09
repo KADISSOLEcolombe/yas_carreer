@@ -1,150 +1,95 @@
 'use client';
 
-import React from 'react';
-import { Users, Shield, UserX, TrendingUp, Briefcase } from 'lucide-react';
-import { COLORS } from '../../../lib/constants';
-import Link from 'next/link';
+import { Users, Briefcase, FileText, Activity } from 'lucide-react';
+import AdminDashboardHeader from '../../../components/admin/AdminDashboardHeader';
 
-export default function AdminDashboard() {
-  const stats = [
-    {
-      label: 'Total utilisateurs',
-      value: '156',
-      icon: Users,
-      color: 'bg-blue-500',
-      trend: '+12%',
-    },
-    {
-      label: 'Rôles actifs',
-      value: '3',
-      icon: Shield,
-      color: 'bg-purple-500',
-      trend: '',
-    },
-    {
-      label: 'Comptes désactivés',
-      value: '5',
-      icon: UserX,
-      color: 'bg-red-500',
-      trend: '-2',
-    },
-    {
-      label: 'Offres publiées',
-      value: '24',
-      icon: Briefcase,
-      color: 'bg-green-500',
-      trend: '+8%',
-    },
-  ];
+const COLORS = {
+  midnight: '#1e3a8a',
+};
 
-  const quickActions = [
-    {
-      title: 'Gérer les rôles',
-      description: 'Créer, modifier et supprimer des rôles utilisateur',
-      icon: Shield,
-      href: '/admin/roles',
-      color: 'bg-purple-50 text-purple-700 border-purple-200',
-    },
-    {
-      title: 'Gérer les comptes',
-      description: 'Activer, désactiver et gérer les comptes utilisateur',
-      icon: Users,
-      href: '/admin/accounts',
-      color: 'bg-blue-50 text-blue-700 border-blue-200',
-    },
-  ];
+const STAT_CARDS = [
+  { label: 'Utilisateurs', value: '6', icon: Users, bg: '#DBEAFE', color: '#1E40AF' },
+  { label: 'Offres publiées', value: '6', icon: Briefcase, bg: '#FEF3C7', color: '#92400E' },
+  { label: 'Candidatures', value: '6', icon: FileText, bg: '#EDE9FE', color: '#6D28D9' },
+  { label: 'Disponibilité', value: '99.8%', icon: Activity, bg: '#D1FAE5', color: '#065F46' },
+];
+
+const USERS_PAR_ROLE = [
+  { label: 'Candidats', value: 4, color: COLORS.midnight },
+  { label: 'RH', value: 1, color: '#facc15' },
+  { label: 'Superviseurs', value: 1, color: '#5F99D2' },
+  { label: 'Admins', value: 1, color: '#F97316' },
+];
+
+const ACTIVITE_RECENTE = [
+  { titre: 'Nouvelle offre publiée', description: 'Développeur Full Stack', temps: 'Il y a 2h' },
+  { titre: 'Candidature reçue', description: 'Kodjo Mensah → Dev Full Stack', temps: 'Il y a 3h' },
+  { titre: 'Entretien planifié', description: 'Akossiwa Gnammi — 23 Jan', temps: 'Il y a 5h' },
+  { titre: 'Offre clôturée', description: 'Stage UX/UI', temps: 'Hier' },
+];
+
+export default function AdminDashboardPage() {
+  const maxValue = Math.max(...USERS_PAR_ROLE.map((r) => r.value));
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2" style={{ color: COLORS.midnight }}>
-          Tableau de bord Admin
-        </h1>
-        <p className="text-gray-600">
-          Vue d'ensemble de la gestion des utilisateurs et des rôles
-        </p>
-      </div>
+    <div className="space-y-6">
+      <AdminDashboardHeader />
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
+      {/* Cartes de statistiques */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {STAT_CARDS.map((card) => {
+          const Icon = card.icon;
           return (
-            <div key={stat.label} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${stat.color}`}>
-                  <Icon size={24} className="text-white" />
-                </div>
-                {stat.trend && (
-                  <span className={`text-sm font-medium ${stat.trend.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                    {stat.trend}
-                  </span>
-                )}
+            <div key={card.label} className="rounded-2xl bg-white p-5 shadow-sm">
+              <div
+                className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl"
+                style={{ backgroundColor: card.bg, color: card.color }}
+              >
+                <Icon size={20} />
               </div>
-              <div className="text-3xl font-bold mb-1" style={{ color: COLORS.midnight }}>
-                {stat.value}
-              </div>
-              <div className="text-sm text-gray-600">{stat.label}</div>
+              <p className="text-3xl font-extrabold text-gray-900">{card.value}</p>
+              <p className="mt-1 text-sm text-gray-500">{card.label}</p>
             </div>
           );
         })}
       </div>
 
-      {/* Quick Actions */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4" style={{ color: COLORS.midnight }}>
-          Actions rapides
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Link
-                key={action.href}
-                href={action.href}
-                className={`bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-all ${action.color}`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-white bg-opacity-50">
-                    <Icon size={24} />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold mb-1">{action.title}</h3>
-                    <p className="text-sm opacity-80">{action.description}</p>
-                  </div>
+      {/* Utilisateurs par rôle + Activité récente */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="mb-5 text-lg font-bold text-gray-900">Utilisateurs par rôle</h2>
+          <div className="space-y-4">
+            {USERS_PAR_ROLE.map((role) => (
+              <div key={role.label} className="flex items-center gap-4">
+                <span className="w-28 shrink-0 text-sm text-gray-700">{role.label}</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${(role.value / maxValue) * 100}%`, backgroundColor: role.color }}
+                  />
                 </div>
-              </Link>
-            );
-          })}
+                <span className="w-6 shrink-0 text-right text-sm font-semibold text-gray-900">{role.value}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Recent Activity */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <h2 className="text-xl font-semibold mb-4" style={{ color: COLORS.midnight }}>
-          Activité récente
-        </h2>
-        <div className="space-y-4">
-          <div className="flex items-center gap-4 text-sm">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-gray-600">Nouveau rôle créé</span>
-            <span className="text-gray-400 ml-auto">Il y a 2 heures</span>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="w-2 h-2 rounded-full bg-blue-500" />
-            <span className="text-gray-600">Compte utilisateur activé</span>
-            <span className="text-gray-400 ml-auto">Il y a 5 heures</span>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="w-2 h-2 rounded-full bg-red-500" />
-            <span className="text-gray-600">Compte utilisateur désactivé</span>
-            <span className="text-gray-400 ml-auto">Hier</span>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="w-2 h-2 rounded-full bg-purple-500" />
-            <span className="text-gray-600">Rôle modifié</span>
-            <span className="text-gray-400 ml-auto">Il y a 2 jours</span>
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="mb-5 text-lg font-bold text-gray-900">Activité récente</h2>
+          <div className="space-y-4">
+            {ACTIVITE_RECENTE.map((item) => (
+              <div key={item.titre} className="flex items-start gap-3">
+                <span
+                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: COLORS.midnight }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold text-gray-900">{item.titre}</p>
+                  <p className="truncate text-sm text-gray-500">{item.description}</p>
+                </div>
+                <span className="shrink-0 text-xs text-gray-400">{item.temps}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

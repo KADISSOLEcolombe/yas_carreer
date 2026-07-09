@@ -16,11 +16,13 @@ interface AuthContextType {
   user: PublicUser | null;
   loginCandidate: (email: string, password: string) => Promise<void>;
   loginRH: (email: string, password: string) => Promise<void>;
+  loginSupervisor: (email: string, password: string) => Promise<void>;
   register: (nom: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
   isRecruiter: boolean;
+  isSupervisor: boolean;
   isCandidate: boolean;
 }
 
@@ -67,6 +69,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginSupervisor = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const sessionUser = authenticateUser(email, password, ['SUPERVISOR']);
+      persistSession(sessionUser);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const register = async (nom: string, email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -88,11 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         loginCandidate,
         loginRH,
+        loginSupervisor,
         register,
         logout,
         isAuthenticated: !!user,
         isLoading,
         isRecruiter: user?.role === 'RECRUITER' || user?.role === 'ADMIN',
+        isSupervisor: user?.role === 'SUPERVISOR',
         isCandidate: user?.role === 'CANDIDATE',
       }}
     >

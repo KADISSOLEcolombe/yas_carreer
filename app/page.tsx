@@ -295,7 +295,7 @@ function WhyChooseSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {benefits.map((benefit, index) => (
-            <div key={index} className="p-8 border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all">
+            <div key={index} className="p-8 rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
               <div className="w-12 h-12 rounded-md flex items-center justify-center mb-6" style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}>
                 {benefit.icon}
               </div>
@@ -366,7 +366,7 @@ function RecentOffersSection() {
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: COLORS.midnight }} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {offers.map((offer) => (
               <JobOfferCard key={offer.id} job={offer} />
             ))}

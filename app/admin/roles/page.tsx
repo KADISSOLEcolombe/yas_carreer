@@ -5,17 +5,19 @@ import { Plus, Pencil, Trash2, Shield } from 'lucide-react';
 import { COLORS } from '../../../lib/constants';
 import { getRegistry, saveRegistry, type StoredUser, type UserRole } from '../../../lib/users';
 
-const AVAILABLE_ROLES: UserRole[] = ['CANDIDATE', 'RECRUITER', 'ADMIN'];
+const AVAILABLE_ROLES: UserRole[] = ['CANDIDATE', 'RECRUITER', 'SUPERVISOR', 'ADMIN'];
 
 const ROLE_LABELS: Record<UserRole, string> = {
   CANDIDATE: 'Candidat',
   RECRUITER: 'RH',
+  SUPERVISOR: 'Superviseur',
   ADMIN: 'Administrateur',
 };
 
 const ROLE_COLORS: Record<UserRole, { bg: string; text: string }> = {
   CANDIDATE: { bg: 'bg-blue-50', text: 'text-blue-700' },
   RECRUITER: { bg: 'bg-purple-50', text: 'text-purple-700' },
+  SUPERVISOR: { bg: 'bg-yellow-50', text: 'text-yellow-700' },
   ADMIN: { bg: 'bg-red-50', text: 'text-red-700' },
 };
 
