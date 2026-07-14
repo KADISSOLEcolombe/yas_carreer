@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Trash2, Eye, EyeOff, Plus, X } from 'lucide-react';
 import { COLORS } from '../../../lib/constants';
 import { getJobs, saveJob, updateJob, deleteJob, type Job, JOB_CATEGORIES, JOB_DEPARTMENTS } from '../../../lib/jobs';
@@ -112,7 +113,11 @@ export default function RHOffresPage() {
               <tbody className="divide-y divide-gray-100">
                 {jobs.map((job) => (
                   <tr key={job.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{job.title}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/rh/offres/${job.id}`} className="font-medium text-gray-900 hover:text-blue-600">
+                        {job.title}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-gray-600">{job.location}</td>
                     <td className="px-4 py-3 text-gray-600">{job.type}</td>
                     <td className="px-4 py-3">
