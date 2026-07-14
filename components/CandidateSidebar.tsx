@@ -84,14 +84,13 @@ export default function CandidateSidebar({ activeTab, onSelect, open, onClose }:
             );
           })}
 
-          <button
-            disabled
-            className="flex w-full cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-gray-400"
+          <Link
+            href="/candidat/profil"
+            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
           >
             <User size={18} />
-            <span className="flex-1 text-left">Mon profil</span>
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">Bientôt</span>
-          </button>
+            Mon profil
+          </Link>
 
           <Link
             href="/offres"
