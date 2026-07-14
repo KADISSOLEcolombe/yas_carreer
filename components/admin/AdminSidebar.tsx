@@ -13,8 +13,8 @@ const COLORS = {
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: "Vue d'ensemble", icon: LayoutDashboard },
   { href: '/admin/accounts', label: 'Utilisateurs', icon: Users },
-  { href: '/admin/offres', label: 'Offres', icon: Briefcase, soon: true },
-  { href: '/admin/candidatures', label: 'Candidatures', icon: FileText, soon: true },
+  { href: '/admin/offres', label: 'Offres', icon: Briefcase },
+  { href: '/admin/candidatures', label: 'Candidatures', icon: FileText },
   { href: '/admin/parametres', label: 'Paramètres', icon: Settings },
   { href: '/admin/statistiques', label: 'Statistiques', icon: BarChart3 },
 ];
@@ -69,28 +69,17 @@ export default function AdminSidebar({ open, onClose }: AdminSidebarProps) {
             return (
               <Link
                 key={item.href}
-                href={item.soon ? '#' : item.href}
-                onClick={(e) => {
-                  if (item.soon) {
-                    e.preventDefault();
-                    return;
-                  }
-                  onClose();
-                }}
+                href={item.href}
+                onClick={onClose}
                 className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition-colors ${
                   active
                     ? 'font-bold'
-                    : item.soon
-                      ? 'cursor-not-allowed font-medium text-gray-400'
-                      : 'font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    : 'font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
                 style={active ? { backgroundColor: COLORS.yellow, color: COLORS.midnight } : undefined}
               >
                 <Icon size={18} />
                 <span className="flex-1">{item.label}</span>
-                {item.soon && (
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">Bientôt</span>
-                )}
               </Link>
             );
           })}
