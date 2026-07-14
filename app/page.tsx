@@ -102,7 +102,7 @@ function Header() {
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="lg:hidden p-2 text-gray-600 hover:text-gray-900"
           >
-            {isMenuOpen ? <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>}
+            {isMenuOpen ? <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="18" y2="18" /></svg>}
           </button>
         </div>
 
@@ -174,7 +174,7 @@ function HeroSection() {
       </div>
 
       {/* COUCHE 2 : Forme organique jaune (décoration absolute à gauche) */}
-      <div className="absolute left-[-10%] top-[-10%] w-[90%] md:w-[75%] lg:w-[60%] h-[120%] pointer-events-none z-[1] hidden md:block opacity-90">
+      <div className="absolute left-[-10%] top-[-15%] w-[90%] md:w-[85%] lg:w-[70%] h-[135%] pointer-events-none z-[1] hidden md:block opacity-95">
         <img
           src="/logo2.svg"
           alt=""
@@ -185,9 +185,9 @@ function HeroSection() {
 
       {/* COUCHE 3 : Contenu (uniquement le titre) */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="max-w-full md:max-w-[45%] lg:max-w-[38%] text-left">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-white md:text-[#1e3a8a] transition-colors duration-300">
-            Trouve ton <span className="text-[#facc15] md:text-[#3b82f6]">stage</span> ou ton emploi au Togo !
+        <div className="max-w-full md:max-w-[50%] lg:max-w-[44%] xl:max-w-[40%] text-left">
+          <h1 className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-bold leading-tight text-white md:text-[#1e3a8a] transition-colors duration-300">
+            Trouve ton <span className="text-[#facc15] md:text-[#3b82f6]">stage</span> ou ton emploi a yas Togo !
           </h1>
         </div>
       </div>
@@ -313,7 +313,7 @@ function RecentOffersSection() {
             {offers.map((offer) => (
               <JobOfferCard key={offer.id} job={offer} />
             ))}
-        </div>
+          </div>
         )}
 
         <div className="mt-10 text-center sm:hidden">
