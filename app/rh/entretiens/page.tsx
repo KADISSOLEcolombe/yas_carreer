@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Calendar, Plus } from 'lucide-react';
 import RhDashboardHeader from '../../../components/rh/RhDashboardHeader';
 
@@ -93,9 +94,10 @@ export default function RHEntretiensPage() {
         {entretiens.map((entretien) => {
           const iconStyle = ICON_STYLE[entretien.statut];
           return (
-            <div
+            <Link
               key={entretien.id}
-              className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm"
+              href={`/rh/entretiens/${entretien.id}`}
+              className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm transition-colors hover:bg-gray-50"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <div
@@ -117,7 +119,7 @@ export default function RHEntretiensPage() {
                 <TypeBadge type={entretien.type} />
                 <StatusBadge statut={entretien.statut} />
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
