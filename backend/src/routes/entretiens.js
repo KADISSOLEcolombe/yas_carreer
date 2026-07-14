@@ -1,0 +1,182 @@
+const express = require('express');
+const prisma = require('../lib/prisma');
+const { requireAuth, requireRole, requirePermission } = require('../middleware/auth');
+
+const router = express.Router();
+
+router.use(requireAuth);
+
+const INCLUDE_FULL = {
+  candidature: {
+    include: {
+      utilisateur: { select: { id: true, nom: true, prenom: true, email: true } },
+      offre: { select: { id: true, titre: true } },
+    },
+  },
+  utilisateur_entretien_utilisateurrh_idToutilisateur: {
+    select: { id: true, nom: true, prenom: true },
+  },
+  utilisateur_entretien_utilisateursup_idToutilisateur: {
+    select: { id: true, nom: true, prenom: true },
+  },
+};
+
+// POST /api/entretiens — Créer un entretien
+router.post('/', requirePermission('planifier_entretien'), async (req, res) => {
+  try {
+    const {
+      date,
+      type,
+      statut,
+      commentaire,
+      id_candidature,
+      utilisateursup_id,
+      lien_meeting,
+      plateforme,
+      duree,
+    } = req.body;
+
+    if (!date || !type || !id_candidature) {
+      return res.status(400).json({ error: 'Date, type et id_candidature sont requis' });
+    }
+
+    if (!['presentiel', 'visio'].includes(type)) {
+      return res.status(400).json({ error: "Type invalide. Valeurs acceptées : 'presentiel', 'visio'" });
+    }
+
+    if (type === 'visio' && !lien_meeting?.trim()) {
+      return res.status(400).json({ error: 'lien_meeting est requis pour un entretien visio' });
+    }
+
+    const data = {
+      date: new Date(date),
+      type,
+      statut: statut?.trim() || 'PLANIFIE',
+      commentaire: commentaire?.trim() || null,
+      id_candidature: parseInt(id_candidature),
+      utilisateurrh_id: parseInt(req.user.id),
+      supprime: false,
+    };
+
+    if (utilisateursup_id) data.utilisateursup_id = parseInt(utilisateursup_id);
+
+    if (type === 'visio') {
+      data.lien_meeting = lien_meeting.trim();
+      data.plateforme = plateforme?.trim() || null;
+      data.duree = duree ? parseInt(duree) : null;
+    }
+
+    const entretien = await prisma.entretien.create({ data, include: INCLUDE_FULL });
+    res.status(201).json(entretien);
+  } catch (error) {
+    console.error('Create entretien error:', error);
+    res.status(500).json({ error: "Erreur lors de la création de l'entretien" });
+  }
+});
+
+// GET /api/entretiens — Lister les entretiens actifs
+router.get('/', requirePermission('consulter_entretien'), async (_req, res) => {
+  try {
+    const entretiens = await prisma.entretien.findMany({
+      where: { supprime: { not: true } },
+      include: INCLUDE_FULL,
+      orderBy: { date: 'desc' },
+    });
+    res.json(entretiens);
+  } catch (error) {
+    console.error('Get entretiens error:', error);
+    res.status(500).json({ error: 'Erreur lors du chargement des entretiens' });
+  }
+});
+
+// GET /api/entretiens/:id — Détail d'un entretien
+router.get('/:id', requirePermission('consulter_entretien'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const entretien = await prisma.entretien.findUnique({ where: { id }, include: INCLUDE_FULL });
+
+    if (!entretien) {
+      return res.status(404).json({ error: 'Entretien non trouvé' });
+    }
+
+    res.json(entretien);
+  } catch (error) {
+    console.error('Get entretien error:', error);
+    res.status(500).json({ error: "Erreur lors du chargement de l'entretien" });
+  }
+});
+
+// PUT /api/entretiens/:id — Modifier un entretien
+router.put('/:id', requirePermission('modifier_entretien'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const {
+      date,
+      type,
+      statut,
+      commentaire,
+      utilisateursup_id,
+      lien_meeting,
+      plateforme,
+      duree,
+    } = req.body;
+
+    const existing = await prisma.entretien.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Entretien non trouvé' });
+    if (existing.supprime) return res.status(400).json({ error: 'Cet entretien est annulé' });
+
+    const newType = type !== undefined ? type : existing.type;
+
+    if (type !== undefined && !['presentiel', 'visio'].includes(type)) {
+      return res.status(400).json({ error: "Type invalide. Valeurs acceptées : 'presentiel', 'visio'" });
+    }
+
+    const data = {};
+    if (date !== undefined) data.date = new Date(date);
+    if (type !== undefined) data.type = type;
+    if (statut !== undefined) data.statut = statut;
+    if (commentaire !== undefined) data.commentaire = commentaire?.trim() || null;
+    if (utilisateursup_id !== undefined) {
+      data.utilisateursup_id = utilisateursup_id ? parseInt(utilisateursup_id) : null;
+    }
+
+    if (newType === 'visio') {
+      if (lien_meeting !== undefined) data.lien_meeting = lien_meeting?.trim() || null;
+      if (plateforme !== undefined) data.plateforme = plateforme?.trim() || null;
+      if (duree !== undefined) data.duree = duree ? parseInt(duree) : null;
+    } else if (type === 'presentiel') {
+      data.lien_meeting = null;
+      data.plateforme = null;
+      data.duree = null;
+    }
+
+    const entretien = await prisma.entretien.update({ where: { id }, data, include: INCLUDE_FULL });
+    res.json(entretien);
+  } catch (error) {
+    console.error('Update entretien error:', error);
+    res.status(500).json({ error: "Erreur lors de la modification de l'entretien" });
+  }
+});
+
+// DELETE /api/entretiens/:id — Annuler un entretien (soft delete)
+router.delete('/:id', requirePermission('annuler_entretien'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const existing = await prisma.entretien.findUnique({ where: { id } });
+
+    if (!existing) return res.status(404).json({ error: 'Entretien non trouvé' });
+    if (existing.supprime) return res.status(400).json({ error: 'Entretien déjà annulé' });
+
+    await prisma.entretien.update({
+      where: { id },
+      data: { supprime: true, statut: 'ANNULE' },
+    });
+
+    res.json({ message: 'Entretien annulé avec succès' });
+  } catch (error) {
+    console.error('Annuler entretien error:', error);
+    res.status(500).json({ error: "Erreur lors de l'annulation de l'entretien" });
+  }
+});
+
+module.exports = router;
