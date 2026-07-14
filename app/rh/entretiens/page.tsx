@@ -67,17 +67,13 @@ function StatusBadge({ statut }: { statut: EntretienStatus }) {
 export default function RHEntretiensPage() {
   const [entretiens] = useState<Entretien[]>(MOCK_ENTRETIENS);
 
-  const handleNewOffer = () => {
-    alert("Formulaire de création d'offre à venir.");
-  };
-
   const handlePlanifier = () => {
     alert("Formulaire de planification d'entretien à venir.");
   };
 
   return (
     <div className="space-y-6">
-      <RhDashboardHeader onNewOffer={handleNewOffer} />
+      <RhDashboardHeader />
 
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-2xl font-bold" style={{ color: COLORS.midnight }}>

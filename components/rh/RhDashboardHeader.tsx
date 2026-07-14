@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Briefcase, FileText, Calendar, Plus } from 'lucide-react';
+import { LayoutDashboard, Briefcase, FileText, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const COLORS = {
@@ -17,11 +17,7 @@ const TABS = [
   { href: '/rh/entretiens', label: 'Entretiens', icon: Calendar },
 ];
 
-interface RhDashboardHeaderProps {
-  onNewOffer: () => void;
-}
-
-export default function RhDashboardHeader({ onNewOffer }: RhDashboardHeaderProps) {
+export default function RhDashboardHeader() {
   const pathname = usePathname();
   const { user } = useAuth();
 
@@ -35,14 +31,6 @@ export default function RhDashboardHeader({ onNewOffer }: RhDashboardHeaderProps
           </h1>
           <p className="text-gray-500">Bienvenue, {user?.nom || 'Marie Dupont'}</p>
         </div>
-        <button
-          onClick={onNewOffer}
-          className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-gray-900 shadow-sm transition-opacity hover:opacity-90"
-          style={{ backgroundColor: COLORS.yellow }}
-        >
-          <Plus size={16} />
-          Nouvelle offre
-        </button>
       </div>
 
       {/* Barre d'onglets */}

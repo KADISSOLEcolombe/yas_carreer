@@ -65,10 +65,6 @@ function StatusBadge({ status }: { status: CandidatureStatus }) {
 export default function RHCandidaturesPage() {
   const [candidatures, setCandidatures] = useState<Candidature[]>(MOCK_CANDIDATURES);
 
-  const handleNewOffer = () => {
-    alert("Formulaire de création d'offre à venir.");
-  };
-
   const handleView = (c: Candidature) => {
     alert(`Détail de la candidature de ${c.nom} — page à venir.`);
   };
@@ -83,7 +79,7 @@ export default function RHCandidaturesPage() {
 
   return (
     <div className="space-y-6">
-      <RhDashboardHeader onNewOffer={handleNewOffer} />
+      <RhDashboardHeader />
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-6 py-5">

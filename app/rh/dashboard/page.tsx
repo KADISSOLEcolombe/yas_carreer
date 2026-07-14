@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Briefcase, FileText, Calendar, UserCheck, Eye } from 'lucide-react';
+import { Briefcase, FileText, Calendar, UserCheck } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -62,13 +62,9 @@ const CANDIDATURES_RECENTES: { id: number; nom: string; poste: string; status: C
 ];
 
 export default function RHDashboardPage() {
-  const handleNewOffer = () => {
-    alert('Formulaire de création d\'offre à venir.');
-  };
-
   return (
     <div className="space-y-6">
-      <RhDashboardHeader onNewOffer={handleNewOffer} />
+      <RhDashboardHeader />
 
       {/* Cartes de statistiques */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
