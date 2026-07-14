@@ -389,83 +389,83 @@ export default function ProfilePage() {
 
                   {/* Section Offres recommandées */}
                   <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-                    <h2 className="border-b border-gray-100 px-6 py-5 text-lg font-bold text-gray-900">
-                      Offres recommandées
-                    </h2>
-                    <div className="p-6">
-                      <div className="relative">
-                        {/* Flèches du carrousel */}
+                    <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+                      <h2 className="text-lg font-bold text-gray-900">Offres recommandées</h2>
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={handleCarouselPrev}
-                          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-colors hover:bg-gray-50"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-colors hover:bg-gray-50"
                           aria-label="Offre précédente"
                         >
                           <ChevronLeft size={16} />
                         </button>
                         <button
                           onClick={handleCarouselNext}
-                          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-colors hover:bg-gray-50"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-colors hover:bg-gray-50"
                           aria-label="Offre suivante"
                         >
                           <ChevronRight size={16} />
                         </button>
-
-                        {/* Carte d'offre */}
-                        <div className="mx-8">
-                          {DONNEES_PROVISOIRES.offresRecommandées.map((offre, index) => (
-                            <div
-                              key={offre.id}
-                              className={`transition-opacity ${
-                                index === carouselIndex ? 'block' : 'hidden'
-                              }`}
-                            >
-                              <div className="rounded-xl border border-gray-100 p-5 transition-shadow hover:shadow-md">
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="flex-1">
-                                    <div className="mb-3 flex items-center gap-2">
-                                      <span
-                                        className="inline-flex rounded-full px-2 py-0.5 text-xs font-bold"
-                                        style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
-                                      >
-                                        {offre.correspondance}% de correspondance
-                                      </span>
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-gray-900">{offre.titre}</h3>
-                                    <p className="text-sm text-gray-600">{offre.entreprise}</p>
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                      {offre.tags.map((tag) => (
-                                        <span
-                                          key={tag}
-                                          className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
-                                        >
-                                          {tag}
-                                        </span>
-                                      ))}
-                                    </div>
-                                    <div className="mt-4 flex items-center justify-between">
-                                      <p className="text-xs text-gray-500">{offre.date}</p>
-                                      <div className="flex items-center gap-3">
-                                        <Link
-                                          href={`/offres/${offre.id}`}
-                                          className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
-                                        >
-                                          Détails
-                                          <ArrowRight size={14} />
-                                        </Link>
-                                        <button
-                                          className="p-1 text-gray-400 transition-colors hover:text-red-500"
-                                          aria-label="Sauvegarder cette offre"
-                                        >
-                                          <Heart size={18} />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {DONNEES_PROVISOIRES.offresRecommandées.map((offre) => (
+                          <div
+                            key={offre.id}
+                            className="rounded-xl border border-gray-100 p-5 transition-shadow hover:shadow-md"
+                          >
+                            {/* Ligne du haut : badge match + cœur */}
+                            <div className="mb-3 flex items-center justify-between">
+                              <span
+                                className="inline-flex rounded-full px-2 py-0.5 text-xs font-bold"
+                                style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
+                              >
+                                {offre.correspondance}% MATCH
+                              </span>
+                              <button
+                                className="p-1 text-gray-400 transition-colors hover:text-red-500"
+                                aria-label="Sauvegarder cette offre"
+                              >
+                                <Heart size={18} />
+                              </button>
                             </div>
-                          ))}
-                        </div>
+                            {/* Titre */}
+                            <h3
+                              className="mb-2 text-lg font-semibold"
+                              style={{ color: COLORS.midnight }}
+                            >
+                              {offre.titre}
+                            </h3>
+                            {/* Entreprise et ville */}
+                            <p className="mb-3 text-sm text-gray-600">
+                              {offre.entreprise} · Lomé
+                            </p>
+                            {/* Tags */}
+                            <div className="mb-4 flex flex-wrap gap-2">
+                              {offre.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                            {/* Ligne du bas : date + détails */}
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-gray-500">{offre.date}</p>
+                              <Link
+                                href={`/offres/${offre.id}`}
+                                className="inline-flex items-center gap-1 text-sm font-semibold"
+                                style={{ color: COLORS.midnight }}
+                              >
+                                Détails
+                                <ArrowRight size={14} />
+                              </Link>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -506,7 +506,7 @@ export default function ProfilePage() {
 
                       {/* Section Documents */}
                       <div className="mb-6">
-                        <h4 className="mb-3 text-sm font-semibold text-gray-900">DOCUMENTS</h4>
+                        <h4 className="mb-3 text-xs font-semibold uppercase text-gray-500">DOCUMENTS</h4>
                         <div className="flex items-center justify-between rounded-xl border border-gray-100 p-3">
                           <div className="flex items-center gap-3">
                             <div
@@ -516,14 +516,22 @@ export default function ProfilePage() {
                               <Download size={18} />
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-gray-900">Mon CV</p>
+                              <p className="text-sm font-medium text-gray-900">Curriculum_Vitae.pdf</p>
                               <p className="text-xs text-gray-500">PDF · 2.4 MB</p>
                             </div>
                           </div>
-                          <button className="text-sm font-semibold text-blue-600 hover:text-blue-700">
-                            Mettre à jour
+                          <button
+                            className="p-2 text-gray-400 transition-colors hover:text-gray-600"
+                            aria-label="Télécharger le CV"
+                          >
+                            <Download size={18} />
                           </button>
                         </div>
+                        {/* Bouton mise à jour CV sur ligne séparée */}
+                        <button className="mt-3 w-full rounded-xl border-2 border-dashed border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700">
+                          <span className="mr-2 text-lg">+</span>
+                          Mettre à jour le CV
+                        </button>
                       </div>
 
                       {/* Barre de progression Profil complété */}
@@ -546,6 +554,9 @@ export default function ProfilePage() {
                             }}
                           />
                         </div>
+                        <p className="mt-2 text-xs text-gray-400">
+                          Ajoutez vos références pour atteindre 100%.
+                        </p>
                       </div>
                     </div>
                   </div>
