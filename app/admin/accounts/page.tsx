@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { UserPlus, Pencil, Trash2 } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, X } from 'lucide-react';
 import AdminDashboardHeader from '../../../components/admin/AdminDashboardHeader';
 
 const COLORS = {
@@ -42,6 +42,14 @@ const MOCK_UTILISATEURS: Utilisateur[] = [
   { id: 6, nom: 'Kwame Tossou', email: 'kwame@yas.tg', role: 'candidate', statut: 'ACTIF', date: '12/01/2025' },
 ];
 
+const EMPTY_FORM = {
+  nom: '',
+  email: '',
+  password: '',
+  role: 'candidate' as Role,
+  statut: 'ACTIF' as Status,
+};
+
 function RoleBadge({ role }: { role: Role }) {
   const style = ROLE_BADGE[role];
   return (
@@ -62,9 +70,36 @@ function StatusBadge({ statut }: { statut: Status }) {
 
 export default function AdminAccountsPage() {
   const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>(MOCK_UTILISATEURS);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAjouter = () => {
-    alert("Formulaire de création d'utilisateur à venir.");
+  const handleOpenModal = () => {
+    setForm(EMPTY_FORM);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setForm(EMPTY_FORM);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const newUtilisateur: Utilisateur = {
+      id: utilisateurs.length + 1,
+      nom: form.nom,
+      email: form.email,
+      role: form.role,
+      statut: form.statut,
+      date: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    };
+
+    setUtilisateurs([...utilisateurs, newUtilisateur]);
+    setIsSubmitting(false);
+    handleCloseModal();
   };
 
   const handleEdit = (nom: string) => {
@@ -85,7 +120,7 @@ export default function AdminAccountsPage() {
         <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-6 py-5">
           <h2 className="text-lg font-bold text-gray-900">Gestion des utilisateurs ({utilisateurs.length})</h2>
           <button
-            onClick={handleAjouter}
+            onClick={handleOpenModal}
             className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
             style={{ backgroundColor: COLORS.midnight }}
           >
@@ -131,6 +166,108 @@ export default function AdminAccountsPage() {
           ))}
         </div>
       </div>
+
+      {/* Modale de création d'utilisateur */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Ajouter un utilisateur</h2>
+              <button
+                onClick={handleCloseModal}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Nom complet *</label>
+                <input
+                  required
+                  type="text"
+                  value={form.nom}
+                  onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                  placeholder="Ex: Jean Dupont"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">E-mail *</label>
+                <input
+                  required
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="Ex: jean.dupont@email.com"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Mot de passe *</label>
+                <input
+                  required
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Rôle *</label>
+                  <select
+                    required
+                    value={form.role}
+                    onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                  >
+                    <option value="candidate">Candidat</option>
+                    <option value="hr">RH</option>
+                    <option value="admin">Admin</option>
+                    <option value="supervisor">Superviseur</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Statut *</label>
+                  <select
+                    required
+                    value={form.statut}
+                    onChange={(e) => setForm({ ...form, statut: e.target.value as Status })}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                  >
+                    <option value="ACTIF">Actif</option>
+                    <option value="INACTIF">Inactif</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-lg px-4 py-2 text-sm font-bold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
+                  style={{ backgroundColor: COLORS.midnight }}
+                >
+                  {isSubmitting ? 'Création...' : 'Créer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
