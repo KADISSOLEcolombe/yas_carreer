@@ -158,18 +158,6 @@ function Header() {
 
 // Hero Section Component
 function HeroSection() {
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [searchType, setSearchType] = React.useState('Tous');
-  const router = useRouter();
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const params = new URLSearchParams();
-    if (searchQuery.trim()) params.set('q', searchQuery.trim());
-    if (searchType !== 'Tous') params.set('type', searchType);
-    router.push(`/offres${params.toString() ? `?${params.toString()}` : ''}`);
-  };
-
   return (
     <section className="relative w-full h-[85vh] min-h-[600px] flex items-center overflow-hidden pt-16">
       {/* COUCHE 1 : Photo de fond + voile bleu foncé avec opacité responsive */}
@@ -195,94 +183,12 @@ function HeroSection() {
         />
       </div>
 
-      {/* COUCHE 3 : Contenu aligné à gauche */}
+      {/* COUCHE 3 : Contenu (uniquement le titre) */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="max-w-4xl text-white md:text-[#1e3a8a] transition-colors duration-300">
-          {/* Badge */}
-          <div className="mb-6 inline-block px-6 py-2 rounded-full bg-[#facc15] shadow-sm">
-            <span className="text-sm font-bold text-[#1e3a8a]">
-              PLATEFORME OFFICIELLE YAS
-            </span>
-          </div>
-
-          {/* Titre */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 leading-tight text-white md:text-[#1e3a8a]">
-            Trouve ton <span className="text-[#facc15] md:text-white md:bg-[#1e3a8a] md:px-3 md:py-0.5 md:rounded-lg">stage</span> ou ton emploi au Togo !
+        <div className="max-w-full md:max-w-[45%] lg:max-w-[38%] text-left">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-white md:text-[#1e3a8a] transition-colors duration-300">
+            Trouve ton <span className="text-[#facc15] md:text-[#3b82f6]">stage</span> ou ton emploi au Togo !
           </h1>
-
-          {/* Sous-titre */}
-          <p className="text-lg mb-8 leading-relaxed text-blue-100 md:text-[#1e3a8a]/90 max-w-2xl font-medium">
-            YAS Togo recrute ! Découvrez toutes nos offres de stages, CDD et CDI et rejoignez l'équipe.
-          </p>
-
-          {/* Boutons CTA */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-12">
-            <Link
-              href="/offres"
-              className="px-8 py-4 font-bold rounded-lg transition-all hover:opacity-90 shadow-md text-center bg-[#facc15] text-[#1e3a8a] md:bg-[#1e3a8a] md:text-white"
-            >
-              Explorer les offres
-            </Link>
-            <Link
-              href="/register"
-              className="px-8 py-4 font-bold rounded-lg transition-all text-center bg-transparent text-white border-2 border-white hover:bg-white/10 md:text-[#1e3a8a] md:border-[#1e3a8a] md:hover:bg-[#1e3a8a]/10"
-            >
-              Créer mon profil
-            </Link>
-          </div>
-
-          {/* Barre de recherche */}
-          <form onSubmit={handleSearch} className="mb-8 max-w-3xl">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 flex items-center gap-3 px-5 py-3.5 bg-white rounded-full border border-slate-200/80 shadow-md">
-                <Search size={22} className="text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Rechercher un poste, département..."
-                  className="flex-1 outline-none text-slate-800 bg-transparent font-medium placeholder-slate-400"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-2 px-5 py-3.5 bg-white rounded-full border border-slate-200/80 shadow-md sm:min-w-[190px]">
-                <select
-                  className="outline-none text-slate-900 bg-transparent w-full cursor-pointer font-medium"
-                  value={searchType}
-                  onChange={(e) => setSearchType(e.target.value)}
-                >
-                  <option value="Tous">Tous les types</option>
-                  <option value="CDI">CDI</option>
-                  <option value="CDD">CDD</option>
-                  <option value="Stage">Stage</option>
-                </select>
-              </div>
-            </div>
-            <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1}>
-              Rechercher
-            </button>
-          </form>
-
-          {/* Statistiques */}
-          <div className="flex flex-wrap gap-8 sm:gap-12">
-            <div>
-              <div className="text-3xl sm:text-4xl font-bold mb-1 text-[#facc15] md:text-[#1e3a8a]">
-                340+
-              </div>
-              <div className="text-sm text-blue-100 md:text-[#1e3a8a]/80 font-bold tracking-wider">OFFRES ACTIVES</div>
-            </div>
-            <div>
-              <div className="text-3xl sm:text-4xl font-bold mb-1 text-[#facc15] md:text-[#1e3a8a]">
-                120+
-              </div>
-              <div className="text-sm text-blue-100 md:text-[#1e3a8a]/80 font-bold tracking-wider">ENTREPRISES</div>
-            </div>
-            <div>
-              <div className="text-3xl sm:text-4xl font-bold mb-1 text-[#facc15] md:text-[#1e3a8a]">
-                2 800+
-              </div>
-              <div className="text-sm text-blue-100 md:text-[#1e3a8a]/80 font-bold tracking-wider">CANDIDATS INSCRITS</div>
-            </div>
-          </div>
         </div>
       </div>
 
