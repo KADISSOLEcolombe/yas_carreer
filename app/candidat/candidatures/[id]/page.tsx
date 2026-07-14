@@ -3,7 +3,11 @@
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Briefcase, Calendar, FileText, Clock, MapPin, Building2, XCircle } from 'lucide-react';
-import { COLORS } from '../../../../app/profil/page';
+
+const COLORS = {
+  midnight: '#1e3a8a',
+  yellow: '#facc15',
+};
 
 type CandidatureStatus = 'ENTRETIEN' | 'EN_COURS' | 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE';
 type ContractType = 'CDI' | 'CDD' | 'Stage';
