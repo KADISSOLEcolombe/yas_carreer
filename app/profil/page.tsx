@@ -614,9 +614,10 @@ export default function ProfilePage() {
               ) : (
                 <div className="space-y-4">
                   {MOCK_ENTRETIENS.map((entretien) => (
-                    <div
+                    <Link
                       key={entretien.id}
-                      className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm"
+                      href={`/candidat/entretiens/${entretien.id}`}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 p-5 transition-all hover:shadow-md hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <div
@@ -634,7 +635,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
                       <EntretienTypeBadge type={entretien.type} />
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}
