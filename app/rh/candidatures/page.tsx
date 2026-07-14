@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, CircleCheck, CircleX, Filter, Download } from 'lucide-react';
+import Link from 'next/link';
+import { CircleCheck, CircleX, Filter, Download } from 'lucide-react';
 import RhDashboardHeader from '../../../components/rh/RhDashboardHeader';
 
 const COLORS = {
@@ -65,10 +66,6 @@ function StatusBadge({ status }: { status: CandidatureStatus }) {
 export default function RHCandidaturesPage() {
   const [candidatures, setCandidatures] = useState<Candidature[]>(MOCK_CANDIDATURES);
 
-  const handleView = (c: Candidature) => {
-    alert(`Détail de la candidature de ${c.nom} — page à venir.`);
-  };
-
   const handleAccept = (id: number) => {
     setCandidatures((prev) => prev.map((c) => (c.id === id ? { ...c, status: 'ACCEPTE' } : c)));
   };
@@ -104,7 +101,11 @@ export default function RHCandidaturesPage() {
 
         <div className="px-6">
           {candidatures.map((c) => (
-            <div key={c.id} className="flex items-center justify-between gap-4 border-b border-gray-100 py-4 last:border-b-0">
+            <Link
+              key={c.id}
+              href={`/rh/candidatures/${c.id}`}
+              className="flex items-center justify-between gap-4 border-b border-gray-100 py-4 last:border-b-0 transition-colors hover:bg-gray-50"
+            >
               <div className="flex min-w-0 items-center gap-3">
                 <div
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
@@ -124,28 +125,21 @@ export default function RHCandidaturesPage() {
                 <TypeBadge type={c.type} />
                 <StatusBadge status={c.status} />
                 <button
-                  onClick={() => handleView(c)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  title="Voir le détail"
-                >
-                  <Eye size={16} />
-                </button>
-                <button
-                  onClick={() => handleAccept(c.id)}
+                  onClick={(e) => e.preventDefault()}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600"
                   title="Accepter"
                 >
                   <CircleCheck size={16} />
                 </button>
                 <button
-                  onClick={() => handleReject(c.id)}
+                  onClick={(e) => e.preventDefault()}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                   title="Refuser"
                 >
                   <CircleX size={16} />
                 </button>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

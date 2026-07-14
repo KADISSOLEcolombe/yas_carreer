@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Briefcase, FileText, Calendar, UserCheck } from 'lucide-react';
+import { Briefcase, FileText, Calendar, UserCheck, Eye } from 'lucide-react';
 import {
   BarChart,
   Bar,
