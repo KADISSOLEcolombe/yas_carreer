@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Menu, AlertCircle, CheckCircle, XCircle, Calendar, Briefcase } from 'lucide-react';
+import { Search, Menu, AlertCircle, CheckCircle, XCircle, Calendar, Briefcase, ChevronLeft, ChevronRight, Heart, Pencil, Download, ArrowRight } from 'lucide-react';
 import CandidateSidebar, { type CandidateTab } from '../../components/CandidateSidebar';
 
 const COLORS = {
@@ -64,6 +64,40 @@ const MOCK_NOTIFICATIONS = [
   },
 ];
 
+// TODO : à remplacer par les vraies données quand le backend sera connecté
+const DONNEES_PROVISOIRES = {
+  pourcentageCorrespondance: [85, 92, 78], // Pour les offres recommandées
+  pourcentageProfilComplété: 75,
+  photoProfil: null, // null = utiliser l'avatar par défaut
+  nomsEntreprises: ['YAS Togo', 'Digital Solutions', 'Tech Africa'],
+  offresRecommandées: [
+    {
+      id: 1,
+      titre: 'Développeur Frontend',
+      entreprise: 'YAS Togo',
+      tags: ['React', 'TypeScript', 'Remote'],
+      date: 'Il y a 2 jours',
+      correspondance: 85,
+    },
+    {
+      id: 2,
+      titre: 'UX Designer Senior',
+      entreprise: 'Digital Solutions',
+      tags: ['Figma', 'Design System', 'Mobile'],
+      date: 'Il y a 3 jours',
+      correspondance: 92,
+    },
+    {
+      id: 3,
+      titre: 'Product Manager',
+      entreprise: 'Tech Africa',
+      tags: ['Agile', 'Scrum', 'Strategy'],
+      date: 'Il y a 5 jours',
+      correspondance: 78,
+    },
+  ],
+};
+
 function StatusBadge({ status }: { status: CandidatureStatus }) {
   const style = STATUS_STYLES[status];
   const Icon = style.icon;
@@ -99,6 +133,90 @@ function TypeBadge({ type }: { type: ContractType }) {
     >
       {type}
     </span>
+  );
+}
+
+// Frise de progression pour les candidatures
+function ProgressionFrise({ status }: { status: CandidatureStatus }) {
+  const etapes = [
+    { label: 'POSTULÉ', key: 'postule' },
+    { label: 'EN RÉVISION', key: 'revision' },
+    { label: 'ENTRETIEN', key: 'entretien' },
+    { label: 'OFFRE', key: 'offre' },
+  ];
+
+  let etapeCourante = 0;
+  if (status === 'EN_ATTENTE') etapeCourante = 1;
+  else if (status === 'ENTRETIEN') etapeCourante = 2;
+  else if (status === 'ACCEPTEE') etapeCourante = 3;
+  else if (status === 'REFUSEE') etapeCourante = -1; // Refusée
+
+  const estRefusee = status === 'REFUSEE';
+
+  return (
+    <div className="w-full">
+      {estRefusee ? (
+        <div className="flex items-center gap-2">
+          <div className="h-1 flex-1 rounded-full bg-gray-200" />
+          <span className="text-xs font-semibold text-red-600">REFUSÉE</span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-0">
+          {etapes.map((etape, index) => {
+            const estPasse = index < etapeCourante;
+            const estCourant = index === etapeCourante;
+            const estFutur = index > etapeCourante;
+
+            return (
+              <div key={etape.key} className="flex flex-col items-center">
+                <div className="relative flex w-full items-center justify-center">
+                  {/* Ligne avant le point */}
+                  {index > 0 && (
+                    <div
+                      className={`absolute left-0 right-1/2 h-0.5 ${
+                        estPasse ? 'bg-yellow-400' : 'bg-gray-200'
+                      }`}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {/* Ligne après le point */}
+                  {index < etapes.length - 1 && (
+                    <div
+                      className={`absolute left-1/2 right-0 h-0.5 ${
+                        estPasse || estCourant ? 'bg-yellow-400' : 'bg-gray-200'
+                      }`}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {/* Point */}
+                  <div
+                    className={`relative z-10 flex h-3 w-3 shrink-0 items-center justify-center rounded-full ${
+                      estPasse
+                        ? 'bg-yellow-400'
+                        : estCourant
+                        ? 'bg-yellow-400 ring-4 ring-yellow-100'
+                        : 'bg-gray-300'
+                    }`}
+                    aria-label={`Étape ${index + 1} : ${etape.label}`}
+                  >
+                    {estCourant && (
+                      <div className="h-1.5 w-1.5 rounded-full bg-yellow-600" />
+                    )}
+                  </div>
+                </div>
+                <span
+                  className={`mt-2 text-[10px] font-medium uppercase ${
+                    estPasse || estCourant ? 'text-gray-900' : 'text-gray-400'
+                  }`}
+                >
+                  {etape.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -140,6 +258,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<CandidateTab>('apercu');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -162,21 +281,15 @@ export default function ProfilePage() {
   }
 
   const initial = user?.nom?.charAt(0).toUpperCase() || 'C';
-  const stats = [
-    { label: 'Candidatures', value: MOCK_CANDIDATURES.length, bg: COLORS.midnight, text: '#FFFFFF' },
-    {
-      label: 'Entretiens',
-      value: MOCK_CANDIDATURES.filter((c) => c.status === 'ENTRETIEN').length,
-      bg: COLORS.yellow,
-      text: COLORS.midnight,
-    },
-    {
-      label: 'Acceptées',
-      value: MOCK_CANDIDATURES.filter((c) => c.status === 'ACCEPTEE').length,
-      bg: COLORS.green,
-      text: '#FFFFFF',
-    },
-  ];
+  const prenom = user?.nom?.split(' ')[0] || 'Candidat';
+
+  const handleCarouselPrev = () => {
+    setCarouselIndex((prev) => (prev === 0 ? DONNEES_PROVISOIRES.offresRecommandées.length - 1 : prev - 1));
+  };
+
+  const handleCarouselNext = () => {
+    setCarouselIndex((prev) => (prev === DONNEES_PROVISOIRES.offresRecommandées.length - 1 ? 0 : prev + 1));
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -199,64 +312,246 @@ export default function ProfilePage() {
         </header>
 
         <main className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
-          {/* En-tête */}
-          <div
-            className="flex flex-col gap-4 rounded-2xl p-6 sm:flex-row sm:items-center sm:justify-between"
-            style={{ backgroundColor: COLORS.midnight }}
-          >
-            <div className="flex items-center gap-4">
-              <div
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-xl font-bold"
-                style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
-              >
-                {initial}
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white sm:text-2xl">Bonjour, {user?.nom || 'Candidat'} 👋</h1>
-                <p className="text-sm text-blue-100">Espace candidat · YAS TOGO</p>
-              </div>
-            </div>
-            <Link
-              href="/offres"
-              className="inline-flex items-center justify-center gap-2 self-start rounded-xl px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90 sm:self-auto"
-              style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
-            >
-              <Search size={16} />
-              Voir les offres
-            </Link>
-          </div>
-
           {/* Contenu de l'onglet Aperçu */}
           {activeTab === 'apercu' && (
-            <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {stats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-2xl p-6 text-center shadow-sm"
-                    style={{ backgroundColor: stat.bg }}
-                  >
-                    <p className="text-4xl font-extrabold" style={{ color: stat.text }}>
-                      {stat.value}
-                    </p>
-                    <p className="mt-1 text-sm font-medium" style={{ color: stat.text }}>
-                      {stat.label}
-                    </p>
-                  </div>
-                ))}
+            <div className="space-y-6">
+              {/* En-tête simple */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold" style={{ color: COLORS.midnight }}>
+                    Bonjour, {prenom} !
+                  </h1>
+                  <p className="text-sm text-gray-600">
+                    Voici un aperçu de vos candidatures et opportunités.
+                  </p>
+                </div>
+                <Link
+                  href="/offres"
+                  className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: COLORS.midnight }}
+                >
+                  <Search size={16} />
+                  Explorer les offres
+                </Link>
               </div>
 
-              <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-                <h2 className="border-b border-gray-100 px-6 py-5 text-lg font-bold text-gray-900">
-                  Dernières candidatures
-                </h2>
-                <div className="px-6">
-                  {MOCK_CANDIDATURES.map((c) => (
-                    <CandidatureRow key={c.id} poste={c.poste} date={c.date} status={c.status} type={c.type} />
-                  ))}
+              {/* Layout 2 colonnes */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                {/* Colonne gauche (~2/3) */}
+                <div className="space-y-6 lg:col-span-2">
+                  {/* Section Mes candidatures */}
+                  <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                    <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+                      <h2 className="text-lg font-bold text-gray-900">Mes candidatures</h2>
+                      <Link
+                        href="/profil"
+                        onClick={() => setActiveTab('candidatures')}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                      >
+                        Voir tout
+                      </Link>
+                    </div>
+                    <div className="space-y-4 p-6">
+                      {MOCK_CANDIDATURES.map((c) => (
+                        <div
+                          key={c.id}
+                          className="flex flex-col gap-6 rounded-xl border border-gray-100 p-4 transition-shadow hover:shadow-md"
+                        >
+                          {/* RANGÉE 1 : Icône + titre + badge */}
+                          <div className="flex items-start justify-between gap-4">
+                            {/* GAUCHE : Icône + titre + département */}
+                            <div className="flex items-start gap-4">
+                              <div
+                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                                style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}
+                              >
+                                <Briefcase size={20} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-gray-900">{c.poste}</p>
+                                <p className="text-sm text-gray-500">
+                                  {DONNEES_PROVISOIRES.nomsEntreprises[c.id - 1] || 'Entreprise'}
+                                </p>
+                              </div>
+                            </div>
+                            {/* DROITE : Badge de statut */}
+                            <StatusBadge status={c.status} />
+                          </div>
+
+                          {/* RANGÉE 2 : Frise de progression */}
+                          <div className="w-full">
+                            <ProgressionFrise status={c.status} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Section Offres recommandées */}
+                  <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                    <h2 className="border-b border-gray-100 px-6 py-5 text-lg font-bold text-gray-900">
+                      Offres recommandées
+                    </h2>
+                    <div className="p-6">
+                      <div className="relative">
+                        {/* Flèches du carrousel */}
+                        <button
+                          onClick={handleCarouselPrev}
+                          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-colors hover:bg-gray-50"
+                          aria-label="Offre précédente"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <button
+                          onClick={handleCarouselNext}
+                          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-colors hover:bg-gray-50"
+                          aria-label="Offre suivante"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+
+                        {/* Carte d'offre */}
+                        <div className="mx-8">
+                          {DONNEES_PROVISOIRES.offresRecommandées.map((offre, index) => (
+                            <div
+                              key={offre.id}
+                              className={`transition-opacity ${
+                                index === carouselIndex ? 'block' : 'hidden'
+                              }`}
+                            >
+                              <div className="rounded-xl border border-gray-100 p-5 transition-shadow hover:shadow-md">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1">
+                                    <div className="mb-3 flex items-center gap-2">
+                                      <span
+                                        className="inline-flex rounded-full px-2 py-0.5 text-xs font-bold"
+                                        style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
+                                      >
+                                        {offre.correspondance}% de correspondance
+                                      </span>
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-gray-900">{offre.titre}</h3>
+                                    <p className="text-sm text-gray-600">{offre.entreprise}</p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {offre.tags.map((tag) => (
+                                        <span
+                                          key={tag}
+                                          className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                                        >
+                                          {tag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <div className="mt-4 flex items-center justify-between">
+                                      <p className="text-xs text-gray-500">{offre.date}</p>
+                                      <div className="flex items-center gap-3">
+                                        <Link
+                                          href={`/offres/${offre.id}`}
+                                          className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
+                                        >
+                                          Détails
+                                          <ArrowRight size={14} />
+                                        </Link>
+                                        <button
+                                          className="p-1 text-gray-400 transition-colors hover:text-red-500"
+                                          aria-label="Sauvegarder cette offre"
+                                        >
+                                          <Heart size={18} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Colonne droite (~1/3) */}
+                <div className="space-y-6">
+                  {/* Carte Mon profil */}
+                  <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                    <div className="p-6">
+                      {/* Photo/avatar */}
+                      <div className="mb-6 flex items-center gap-4">
+                        {DONNEES_PROVISOIRES.photoProfil ? (
+                          <img
+                            src={DONNEES_PROVISOIRES.photoProfil}
+                            alt="Photo de profil"
+                            className="h-16 w-16 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="flex h-16 w-16 items-center justify-center rounded-full text-2xl font-bold"
+                            style={{ backgroundColor: COLORS.midnight, color: COLORS.yellow }}
+                          >
+                            {initial}
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900">{user?.nom || 'Candidat'}</h3>
+                          <p className="text-sm text-gray-500">Candidat</p>
+                        </div>
+                        <button
+                          className="p-2 text-gray-400 transition-colors hover:text-gray-600"
+                          aria-label="Modifier la photo de profil"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </div>
+
+                      {/* Section Documents */}
+                      <div className="mb-6">
+                        <h4 className="mb-3 text-sm font-semibold text-gray-900">DOCUMENTS</h4>
+                        <div className="flex items-center justify-between rounded-xl border border-gray-100 p-3">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="flex h-10 w-10 items-center justify-center rounded-lg"
+                              style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}
+                            >
+                              <Download size={18} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">Mon CV</p>
+                              <p className="text-xs text-gray-500">PDF · 2.4 MB</p>
+                            </div>
+                          </div>
+                          <button className="text-sm font-semibold text-blue-600 hover:text-blue-700">
+                            Mettre à jour
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Barre de progression Profil complété */}
+                      <div>
+                        <div className="mb-2 flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-gray-900">Profil complété</h4>
+                          <span
+                            className="text-sm font-bold"
+                            style={{ color: COLORS.midnight }}
+                          >
+                            {DONNEES_PROVISOIRES.pourcentageProfilComplété}%
+                          </span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-gray-100">
+                          <div
+                            className="h-2 rounded-full transition-all"
+                            style={{
+                              width: `${DONNEES_PROVISOIRES.pourcentageProfilComplété}%`,
+                              backgroundColor: COLORS.yellow,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {/* Contenu de l'onglet Mes candidatures */}
