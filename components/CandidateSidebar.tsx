@@ -9,13 +9,14 @@ const COLORS = {
   midnight: '#1e3a8a',
 };
 
-export type CandidateTab = 'apercu' | 'candidatures' | 'entretiens' | 'notifications';
+export type CandidateTab = 'apercu' | 'candidatures' | 'entretiens' | 'notifications' | 'profil';
 
 export const CANDIDATE_TABS: { key: CandidateTab; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'apercu', label: 'Aperçu', icon: LayoutDashboard },
   { key: 'candidatures', label: 'Mes candidatures', icon: Briefcase },
   { key: 'entretiens', label: 'Mes entretiens', icon: Calendar },
   { key: 'notifications', label: 'Notifications', icon: Bell },
+  { key: 'profil', label: 'Mon profil', icon: User },
 ];
 
 interface CandidateSidebarProps {
@@ -83,14 +84,6 @@ export default function CandidateSidebar({ activeTab, onSelect, open, onClose }:
               </button>
             );
           })}
-
-          <Link
-            href="/candidat/profil"
-            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
-          >
-            <User size={18} />
-            Mon profil
-          </Link>
 
           <Link
             href="/offres"
