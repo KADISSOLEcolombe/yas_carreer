@@ -80,48 +80,52 @@ export default function JobOfferCard({ job }: JobOfferCardProps) {
   const applicants = getApplicantsCount(job);
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="mb-2.5 flex items-start justify-between gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-[#003F8C]">
-          <Icon size={16} />
+    <Link
+      href={`/offres/${job.id}`}
+      className="group block rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm transition-all duration-200 hover:border-[#1e3a8a] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a8a] focus-visible:ring-offset-2 cursor-pointer"
+    >
+      <article>
+        <div className="mb-2.5 flex items-start justify-between gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-[#003F8C]">
+            <Icon size={16} />
+          </div>
+          <span
+            className="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold leading-none"
+            style={{ backgroundColor: typeStyle.bg, color: typeStyle.text }}
+          >
+            {job.type}
+          </span>
         </div>
-        <span
-          className="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold leading-none"
-          style={{ backgroundColor: typeStyle.bg, color: typeStyle.text }}
-        >
-          {job.type}
-        </span>
-      </div>
 
-      <h3 className="mb-0.5 text-[0.95rem] font-bold leading-tight text-slate-900">
-        {job.title}
-      </h3>
-      <p className="mb-2 text-[0.75rem] text-slate-500">{getCategoryLabel(job)}</p>
+        <h3 className="mb-0.5 text-[0.95rem] font-bold leading-tight text-slate-900">
+          {job.title}
+        </h3>
+        <p className="mb-2 text-[0.75rem] text-slate-500">{getCategoryLabel(job)}</p>
 
-      <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-slate-500">
-        <span className="inline-flex items-center gap-1">
-          <MapPin size={12} /> {job.location}, Togo
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Clock3 size={12} /> Clôture : {closingDate}
-        </span>
-      </div>
+        <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-slate-500">
+          <span className="inline-flex items-center gap-1">
+            <MapPin size={12} /> {job.location}, Togo
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Clock3 size={12} /> Clôture : {closingDate}
+          </span>
+        </div>
 
-      <div className="mb-2 inline-flex items-center gap-1 text-[0.7rem] text-slate-500">
-        <Users size={12} /> {applicants} candidatures
-      </div>
+        <div className="mb-2 inline-flex items-center gap-1 text-[0.7rem] text-slate-500">
+          <Users size={12} /> {applicants} candidatures
+        </div>
 
-      <p className="mb-2 text-[0.95rem] font-extrabold text-[#003F8C]">{job.salary || 'À discuter'}</p>
+        <p className="mb-2 text-[0.95rem] font-extrabold text-[#003F8C]">{job.salary || 'À discuter'}</p>
 
-      <div className="flex items-center justify-between border-t border-slate-200 pt-2 text-[0.7rem] text-slate-400">
-        <span>Publié le {publishedDate}</span>
-        <Link
-          href={`/offres/${job.id}`}
-          className="inline-flex items-center gap-1 font-bold text-[#003F8C] hover:opacity-80"
-        >
-          Voir <ChevronRight size={14} />
-        </Link>
-      </div>
-    </article>
+        <div className="flex items-center justify-between border-t border-slate-200 pt-2 text-[0.7rem] text-slate-400">
+          <span>Publié le {publishedDate}</span>
+          <span
+            className="inline-flex items-center gap-1 font-bold text-[#003F8C] group-hover:text-[#1e3a8a] transition-colors duration-200"
+          >
+            Voir <ChevronRight size={14} />
+          </span>
+        </div>
+      </article>
+    </Link>
   );
 }

@@ -40,14 +40,7 @@ function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-3">
             <img src="/yas-logo.svg" alt="YAS Togo" className="h-12 w-auto" />
-            <div className="flex flex-col">
-              <span className="font-bold text-lg leading-tight" style={{ color: COLORS.midnight }}>
-                YAS Togo
-              </span>
-              <span className="text-xs leading-tight" style={{ color: COLORS.text.muted }}>
-                Youth Employment Support
-              </span>
-            </div>
+
           </Link>
 
           {/* Desktop Navigation */}
