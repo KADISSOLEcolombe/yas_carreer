@@ -571,9 +571,33 @@ export default function ProfilePage() {
               <h2 className="border-b border-gray-100 px-6 py-5 text-lg font-bold text-gray-900">
                 Mes candidatures ({MOCK_CANDIDATURES.length})
               </h2>
-              <div className="px-6">
+              <div className="space-y-4 p-6">
                 {MOCK_CANDIDATURES.map((c) => (
-                  <CandidatureRow key={c.id} poste={c.poste} date={c.date} status={c.status} type={c.type} />
+                  <Link
+                    key={c.id}
+                    href={`/candidat/candidatures/${c.id}`}
+                    className="block rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                        style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}
+                      >
+                        <Briefcase size={20} />
+                      </div>
+                      <div className="flex min-w-0 flex-1">
+                        <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-gray-900">{c.poste}</p>
+                            <p className="text-sm text-gray-500">
+                              {DONNEES_PROVISOIRES.nomsEntreprises[c.id - 1] || 'Entreprise'}
+                            </p>
+                          </div>
+                          <StatusBadge status={c.status} />
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
                 ))}
               </div>
             </div>
