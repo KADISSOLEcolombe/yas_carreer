@@ -1,16 +1,10 @@
 import Link from 'next/link';
-import { Clock3, Star } from 'lucide-react';
 import { CANDIDATS_A_EVALUER, DERNIERES_EVALUATIONS } from '../../../lib/superviseur-data';
 
 const STATUS_STYLES = {
   'Validée': { bg: '#D1FAE5', text: '#065F46' },
   'En attente': { bg: '#FEF3C7', text: '#92400E' },
 } as const;
-
-const STAT_CARDS = [
-  { label: 'Évaluations réalisées', value: 8, icon: Star, bg: '#DBEAFE', color: '#1E40AF' },
-  { label: "En attente d'évaluation", value: 3, icon: Clock3, bg: '#FEF3C7', color: '#92400E' },
-];
 
 const initials = (value: string) => value.charAt(0).toUpperCase();
 
@@ -47,24 +41,6 @@ export default function SuperviseurDashboardPage() {
             </div>
           </div>
         </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {STAT_CARDS.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.label} className="rounded-2xl bg-white p-5 shadow-sm">
-              <div
-                className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl"
-                style={{ backgroundColor: card.bg, color: card.color }}
-              >
-                <Icon size={20} />
-              </div>
-              <p className="text-3xl font-extrabold text-gray-900">{card.value}</p>
-              <p className="mt-1 text-sm text-gray-500">{card.label}</p>
-            </div>
-          );
-        })}
       </section>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
