@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const authRoutes = require('./routes/auth');
 const rhRoutes = require('./routes/rh');
 const adminRoutes = require('./routes/admin');
@@ -9,11 +10,15 @@ const applicationsRoutes = require('./routes/applications');
 const entretiensRoutes = require('./routes/entretiens');
 const evaluationsRoutes = require('./routes/evaluations');
 const notificationsRoutes = require('./routes/notifications');
+const filesRoutes = require('./routes/files');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
 app.use(express.json());
+
+// Servir le dossier uploads comme dossier statique
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -27,6 +32,7 @@ app.use('/api/candidatures', applicationsRoutes);
 app.use('/api/entretiens', entretiensRoutes);
 app.use('/api/evaluations', evaluationsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/files', filesRoutes);
 app.listen(PORT, () => {
   console.log(`API YAS Career démarrée sur http://localhost:${PORT}`);
 });
