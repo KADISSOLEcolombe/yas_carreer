@@ -57,6 +57,44 @@ export interface Job {
   createdAt?: string;
 }
 
+// Types pour les candidatures du backend
+export interface ApiCandidature {
+  id: number;
+  statut: 'EN_ATTENTE' | 'ACCEPTEE' | 'REJETEE' | 'ENTRETIEN';
+  date_soumission: string;
+  score?: number;
+  id_offre: number;
+  utilisateurcand_id: number;
+  utilisateur?: {
+    id: number;
+    nom: string;
+    prenom: string;
+    email: string;
+    telephone?: string;
+  };
+  offre?: {
+    id: number;
+    titre: string;
+    type: string;
+    localisation: string;
+  };
+}
+
+// Types pour les candidatures du frontend (format existant dans lib/applications.ts)
+export interface Application {
+  id: string;
+  userId: string;
+  jobId: number;
+  jobTitle: string;
+  status: 'PENDING' | 'IN_REVIEW' | 'INTERVIEW' | 'ACCEPTED' | 'REJECTED';
+  createdAt: string;
+  nom: string;
+  email: string;
+  telephone: string;
+  coverLetter: string;
+  cvFileName: string;
+}
+
 class ApiError extends Error {
   status: number;
 
@@ -135,6 +173,48 @@ export function mapOffre(apiOffre: ApiOffre): Job {
   };
 }
 
+// Mapping des statuts backend vers frontend
+const STATUS_MAPPING: Record<string, Application['status']> = {
+  'EN_ATTENTE': 'PENDING',
+  'ACCEPTEE': 'ACCEPTED',
+  'REJETEE': 'REJECTED',
+  'ENTRETIEN': 'INTERVIEW',
+};
+
+const STATUS_REVERSE_MAPPING: Record<Application['status'], string> = {
+  'PENDING': 'EN_ATTENTE',
+  'ACCEPTED': 'ACCEPTEE',
+  'REJECTED': 'REJETEE',
+  'INTERVIEW': 'ENTRETIEN',
+  'IN_REVIEW': 'EN_ATTENTE', // Fallback
+};
+
+// Fonction de mapping : transforme une candidature backend vers format frontend
+export function mapCandidature(apiCandidature: ApiCandidature): Application {
+  return {
+    id: String(apiCandidature.id),
+    userId: String(apiCandidature.utilisateurcand_id),
+    jobId: apiCandidature.id_offre,
+    jobTitle: apiCandidature.offre?.titre || 'Offre inconnue',
+    status: STATUS_MAPPING[apiCandidature.statut] || 'PENDING',
+    createdAt: new Date(apiCandidature.date_soumission).toISOString(),
+    nom: apiCandidature.utilisateur?.nom || '',
+    email: apiCandidature.utilisateur?.email || '',
+    telephone: apiCandidature.utilisateur?.telephone || '',
+    coverLetter: '', // Non disponible en base pour l'instant
+    cvFileName: '', // Non disponible en base pour l'instant
+  };
+}
+
+// Fonction inverse : transforme statut frontend vers backend
+export function mapStatusToFrontend(status: string): Application['status'] {
+  return STATUS_MAPPING[status] || 'PENDING';
+}
+
+export function mapStatusToBackend(status: Application['status']): string {
+  return STATUS_REVERSE_MAPPING[status] || 'EN_ATTENTE';
+}
+
 export const api = {
   login: async (email: string, password: string) => {
     const response = await request<{ user: User; token: string }>('/api/auth/login', {
@@ -190,6 +270,37 @@ export const api = {
 
   getOffreById: (id: number) =>
     request<ApiOffre>(`/api/offres/${id}`),
+
+  // Candidatures
+  postuler: (data: {
+    id_offre: number;
+    lettre_motivation?: string;
+    cv?: string;
+  }) =>
+    request<ApiCandidature>('/api/candidatures', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getMyApplications: () =>
+    request<ApiCandidature[]>('/api/candidatures/mes'),
+
+  getAllApplications: () =>
+    request<ApiCandidature[]>('/api/candidatures'),
+
+  getApplicationById: (id: number) =>
+    request<ApiCandidature>(`/api/candidatures/${id}`),
+
+  updateApplicationStatus: (id: number, statut: string) =>
+    request<ApiCandidature>(`/api/candidatures/${id}/statut`, {
+      method: 'PUT',
+      body: JSON.stringify({ statut }),
+    }),
+
+  deleteApplication: (id: number) =>
+    request<void>(`/api/candidatures/${id}`, {
+      method: 'DELETE',
+    }),
 };
 
 export { ApiError };

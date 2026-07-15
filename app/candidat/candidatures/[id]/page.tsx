@@ -1,23 +1,22 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Briefcase, Calendar, FileText, Clock, MapPin, Building2, XCircle } from 'lucide-react';
+import { api, mapCandidature, mapStatusToFrontend, type Application } from '../../../../lib/api';
 
 const COLORS = {
   midnight: '#1e3a8a',
   yellow: '#facc15',
 };
 
-type CandidatureStatus = 'ENTRETIEN' | 'EN_COURS' | 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE';
-type ContractType = 'CDI' | 'CDD' | 'Stage';
-
-const STATUS_STYLES: Record<CandidatureStatus, { bg: string; text: string; label: string }> = {
-  ENTRETIEN: { bg: '#EDE9FE', text: '#6D28D9', label: 'Entretien planifié' },
-  EN_COURS: { bg: '#DBEAFE', text: '#1E40AF', label: 'En cours' },
-  EN_ATTENTE: { bg: '#FEF3C7', text: '#92400E', label: 'En attente' },
-  ACCEPTEE: { bg: '#D1FAE5', text: '#065F46', label: 'Acceptée' },
-  REFUSEE: { bg: '#FEE2E2', text: '#DC2626', label: 'Refusée' },
+const STATUS_STYLES: Record<Application['status'], { bg: string; text: string; label: string }> = {
+  PENDING: { bg: '#FEF3C7', text: '#92400E', label: 'En attente' },
+  IN_REVIEW: { bg: '#DBEAFE', text: '#1E40AF', label: 'En examen' },
+  INTERVIEW: { bg: '#EDE9FE', text: '#6D28D9', label: 'Entretien' },
+  ACCEPTED: { bg: '#D1FAE5', text: '#065F46', label: 'Acceptée' },
+  REJECTED: { bg: '#FEE2E2', text: '#DC2626', label: 'Refusée' },
 };
 
 // TODO : à remplacer par les vraies données quand le backend sera connecté
@@ -83,7 +82,7 @@ const MOCK_CANDIDATURES: Record<number, {
   },
 };
 
-function StatusBadge({ status }: { status: CandidatureStatus }) {
+function StatusBadge({ status }: { status: Application['status'] }) {
   const style = STATUS_STYLES[status];
   return (
     <span
@@ -95,7 +94,7 @@ function StatusBadge({ status }: { status: CandidatureStatus }) {
   );
 }
 
-function ProgressionFrise({ status }: { status: CandidatureStatus }) {
+function ProgressionFrise({ status }: { status: Application['status'] }) {
   const etapes = [
     { label: 'POSTULÉ', key: 'postule' },
     { label: 'EN RÉVISION', key: 'revision' },
@@ -104,12 +103,13 @@ function ProgressionFrise({ status }: { status: CandidatureStatus }) {
   ];
 
   let etapeCourante = 0;
-  if (status === 'EN_ATTENTE') etapeCourante = 1;
-  else if (status === 'ENTRETIEN') etapeCourante = 2;
-  else if (status === 'ACCEPTEE') etapeCourante = 3;
-  else if (status === 'REFUSEE') etapeCourante = -1;
+  if (status === 'PENDING') etapeCourante = 1;
+  else if (status === 'IN_REVIEW') etapeCourante = 2;
+  else if (status === 'INTERVIEW') etapeCourante = 3;
+  else if (status === 'ACCEPTED') etapeCourante = 4;
+  else if (status === 'REJECTED') etapeCourante = -1;
 
-  const estRefusee = status === 'REFUSEE';
+  const estRefusee = status === 'REJECTED';
 
   return (
     <div className="w-full">
@@ -204,18 +204,55 @@ function SectionCard({
 export default function CandidatureDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const candidatureId = Number(id);
+  const [application, setApplication] = useState<Application | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const candidature = MOCK_CANDIDATURES[candidatureId];
+  useEffect(() => {
+    const loadApplication = async () => {
+      if (!id) return;
+      
+      setIsLoading(true);
+      setError(null);
+      try {
+        const apiCandidature = await api.getApplicationById(Number(id));
+        const mappedApplication = mapCandidature(apiCandidature);
+        setApplication(mappedApplication);
+      } catch (err: any) {
+        console.error('Erreur lors du chargement de la candidature:', err);
+        if (err.status === 404) {
+          setError('Candidature introuvable');
+        } else {
+          setError(err.message || 'Impossible de charger la candidature');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  if (!candidature) {
+    loadApplication();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: COLORS.midnight }} />
+      </div>
+    );
+  }
+
+  if (error || !application) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Candidature non trouvée</h2>
-          <p className="text-gray-600 mb-6">La candidature que vous recherchez n'existe pas.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {error === 'Candidature introuvable' ? 'Candidature non trouvée' : 'Erreur de chargement'}
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {error || 'Impossible de charger les détails de la candidature.'}
+          </p>
           <Link
-            href="/profil"
+            href="/candidat/candidatures"
             className="inline-flex items-center gap-2 px-6 py-3 font-bold rounded-lg transition-all hover:opacity-90 shadow-sm"
             style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
           >
@@ -232,8 +269,7 @@ export default function CandidatureDetailPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Lien retour */}
         <Link
-          href="/profil"
-          onClick={() => router.push('/profil')}
+          href="/candidat/candidatures"
           className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
         >
           <ArrowLeft size={16} aria-hidden="true" />
@@ -243,105 +279,46 @@ export default function CandidatureDetailPage() {
         {/* En-tête */}
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 sm:p-8 mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold mb-4" style={{ color: COLORS.midnight }}>
-            {candidature.poste}
+            {application.jobTitle}
           </h1>
           
           {/* Ligne d'infos */}
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 mb-4">
-            {candidature.departement && (
-              <span className="inline-flex items-center gap-2">
-                <Building2 size={16} className="shrink-0" style={{ color: COLORS.midnight }} aria-hidden="true" />
-                {candidature.departement}
-              </span>
-            )}
-            <span className="inline-flex items-center gap-2">
-              <Briefcase size={16} className="shrink-0" style={{ color: COLORS.midnight }} aria-hidden="true" />
-              {candidature.type}
-            </span>
             <span className="inline-flex items-center gap-2">
               <Calendar size={16} className="shrink-0" style={{ color: COLORS.midnight }} aria-hidden="true" />
-              Candidature le {candidature.date}
+              Candidature le {new Date(application.createdAt).toLocaleDateString('fr-FR')}
             </span>
           </div>
 
           {/* Badge de statut */}
           <div className="mb-6">
-            <StatusBadge status={candidature.status} />
+            <StatusBadge status={application.status} />
           </div>
 
           {/* Frise de progression */}
-          <ProgressionFrise status={candidature.status} />
+          <ProgressionFrise status={application.status} />
         </div>
 
-        {/* Description du poste */}
-        {candidature.description && (
-          <SectionCard icon={Briefcase} title="Description du poste">
-            <p className="text-gray-700 leading-relaxed">{candidature.description}</p>
-          </SectionCard>
-        )}
-
-        {/* Mes documents */}
-        <SectionCard icon={FileText} title="Mes documents">
+        {/* Description du poste - non disponible en base pour l'instant */}
+        {/* Mes documents - non disponibles en base pour l'instant */}
+        <SectionCard icon={FileText} title="Informations">
           <div className="space-y-3">
-            {candidature.cvFile && (
-              <div className="flex items-center justify-between rounded-xl border border-gray-100 p-4">
-                <div className="flex items-center gap-3">
-                  <FileText size={20} className="text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{candidature.cvFile}</p>
-                    <p className="text-xs text-gray-500">PDF · 2.4 MB</p>
-                  </div>
-                </div>
-                <button className="text-sm font-semibold text-blue-600 hover:text-blue-700">
-                  Télécharger
-                </button>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-900">Nom :</span>
+              <span className="text-sm text-gray-600">{application.nom}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-900">Email :</span>
+              <span className="text-sm text-gray-600">{application.email}</span>
+            </div>
+            {application.telephone && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-900">Téléphone :</span>
+                <span className="text-sm text-gray-600">{application.telephone}</span>
               </div>
-            )}
-            {candidature.lettreFile && (
-              <div className="flex items-center justify-between rounded-xl border border-gray-100 p-4">
-                <div className="flex items-center gap-3">
-                  <FileText size={20} className="text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{candidature.lettreFile}</p>
-                    <p className="text-xs text-gray-500">PDF · 1.2 MB</p>
-                  </div>
-                </div>
-                <button className="text-sm font-semibold text-blue-600 hover:text-blue-700">
-                  Télécharger
-                </button>
-              </div>
-            )}
-            {!candidature.cvFile && !candidature.lettreFile && (
-              <p className="text-sm text-gray-500">Aucun document disponible.</p>
             )}
           </div>
         </SectionCard>
-
-        {/* Entretien */}
-        {candidature.entretien && (
-          <SectionCard icon={Clock} title="Entretien">
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}>
-                  <Calendar size={20} />
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{candidature.entretien.date} à {candidature.entretien.heure}</p>
-                  <p className="text-sm text-gray-600">Avec {candidature.entretien.avec}</p>
-                  <p className="text-sm text-gray-600">{candidature.entretien.type}</p>
-                </div>
-              </div>
-              <Link
-                href="#"
-                className="inline-flex items-center gap-2 text-sm font-semibold"
-                style={{ color: COLORS.midnight }}
-              >
-                Voir le détail de l'entretien
-                <ArrowLeft size={14} className="rotate-180" />
-              </Link>
-            </div>
-          </SectionCard>
-        )}
       </main>
     </div>
   );

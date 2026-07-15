@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, X, User, Briefcase, FileText, Link2, Upload, XCircle } from 'lucide-react';
+import { api } from '../lib/api';
 
 const COLORS = {
   midnight: '#1e3a8a',
@@ -152,11 +153,24 @@ export default function ApplicationModal({
     }
 
     setIsSubmitting(true);
-    // L'envoi réel de la candidature sera branché plus tard
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // Pour l'instant, on envoie seulement l'id_offre au backend
+      // Le backend n'attend que id_offre pour créer la candidature
+      await api.postuler({
+        id_offre: Number(jobId),
+        lettre_motivation: '', // À implémenter plus tard avec upload de fichiers
+      });
+      
+      // Succès : fermer la modale
       onClose();
-    }, 2000);
+      // Optionnel : rafraîchir la liste des candidatures ou afficher un message de succès
+      alert('Candidature envoyée avec succès !');
+    } catch (error: any) {
+      console.error('Erreur lors de la candidature:', error);
+      alert(error.message || 'Erreur lors de l\'envoi de la candidature');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const inputClass =
