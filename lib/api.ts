@@ -301,6 +301,46 @@ export const api = {
     request<void>(`/api/candidatures/${id}`, {
       method: 'DELETE',
     }),
+
+  // Offres RH (gestion)
+  createOffre: (data: {
+    titre: string;
+    type?: string;
+    exigence?: string;
+    localisation?: string;
+    date_limite?: string;
+    id_departement: number;
+    exigences_fichier?: string;
+  }) =>
+    request<ApiOffre>('/api/offres', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateOffre: (id: number, data: {
+    titre?: string;
+    type?: string;
+    exigence?: string;
+    localisation?: string;
+    date_limite?: string;
+    id_departement?: number;
+    exigences_fichier?: string;
+  }) =>
+    request<ApiOffre>(`/api/offres/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  updateOffreStatus: (id: number, statut: 'BROUILLON' | 'PUBLIEE' | 'FERMEE') =>
+    request<ApiOffre>(`/api/offres/${id}/statut`, {
+      method: 'PUT',
+      body: JSON.stringify({ statut }),
+    }),
+
+  deleteOffre: (id: number) =>
+    request<{ message: string }>(`/api/offres/${id}`, {
+      method: 'DELETE',
+    }),
 };
 
 export { ApiError };
