@@ -1,140 +1,25 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, User, Briefcase, Calendar, MapPin, Phone, Mail, FileText, Download, Check, X } from 'lucide-react';
+import { api, mapCandidature, mapStatusToBackend, type Application } from '../../../../lib/api';
 
 const COLORS = {
   midnight: '#1e3a8a',
   yellow: '#facc15',
 };
 
-type CandidatureStatus = 'ENTRETIEN' | 'EN_COURS' | 'EN_ATTENTE' | 'ACCEPTE' | 'REFUSE';
-
-const STATUS_STYLES: Record<CandidatureStatus, { bg: string; text: string; label: string }> = {
-  ENTRETIEN: { bg: '#EDE9FE', text: '#6D28D9', label: 'Entretien planifié' },
-  EN_COURS: { bg: '#DBEAFE', text: '#1E40AF', label: 'En cours' },
-  EN_ATTENTE: { bg: '#FEF3C7', text: '#92400E', label: 'En attente' },
-  ACCEPTE: { bg: '#D1FAE5', text: '#065F46', label: 'Accepté' },
-  REFUSE: { bg: '#FEE2E2', text: '#DC2626', label: 'Refusé' },
+const STATUS_STYLES: Record<Application['status'], { bg: string; text: string; label: string }> = {
+  PENDING: { bg: '#FEF3C7', text: '#92400E', label: 'En attente' },
+  IN_REVIEW: { bg: '#DBEAFE', text: '#1E40AF', label: 'En examen' },
+  INTERVIEW: { bg: '#EDE9FE', text: '#6D28D9', label: 'Entretien' },
+  ACCEPTED: { bg: '#D1FAE5', text: '#065F46', label: 'Accepté' },
+  REJECTED: { bg: '#FEE2E2', text: '#DC2626', label: 'Refusé' },
 };
 
-// TODO : à remplacer par les vraies données quand le backend sera connecté
-const MOCK_CANDIDATURES: Record<number, {
-  id: number;
-  nom: string;
-  prenom: string;
-  email: string;
-  telephone: string;
-  poste: string;
-  date: string;
-  status: CandidatureStatus;
-  type: string;
-  cvFile?: string;
-  lettreFile?: string;
-  description?: string;
-  experience?: string;
-  formation?: string;
-}> = {
-  1: {
-    id: 1,
-    nom: 'Mensah',
-    prenom: 'Kodjo',
-    email: 'kodjo.mensah@email.com',
-    telephone: '+228 90 11 22 33',
-    poste: 'Développeur Full Stack',
-    date: '14/01/2025',
-    status: 'ENTRETIEN',
-    type: 'CDI',
-    cvFile: 'CV_Kodjo_Mensah.pdf',
-    lettreFile: 'Lettre_Motivation.pdf',
-    description: 'Développeur passionné avec 5 ans d\'expérience en développement web.',
-    experience: '5 ans en développement Full Stack',
-    formation: 'Bac+5 en Informatique',
-  },
-  2: {
-    id: 2,
-    nom: 'Gnammi',
-    prenom: 'Akossiwa',
-    email: 'akossiwa.gnammi@email.com',
-    telephone: '+228 91 22 33 44',
-    poste: 'Stage – Analyste Business',
-    date: '12/01/2025',
-    status: 'EN_COURS',
-    type: 'Stage',
-    cvFile: 'CV_Akossiwa_Gnammi.pdf',
-    lettreFile: null,
-    description: 'Étudiante en fin d\'études motivée par l\'analyse business.',
-    experience: '2 stages en entreprise',
-    formation: 'Bac+3 en Gestion',
-  },
-  3: {
-    id: 3,
-    nom: 'Agbemadon',
-    prenom: 'Yao',
-    email: 'yao.agbemadon@email.com',
-    telephone: '+228 92 33 44 55',
-    poste: 'Chargé(e) de Communication',
-    date: '13/01/2025',
-    status: 'EN_ATTENTE',
-    type: 'CDI',
-    cvFile: 'CV_Yao_Agbemadon.pdf',
-    lettreFile: 'Lettre_Motivation.pdf',
-    description: 'Professionnel de la communication avec 3 ans d\'expérience.',
-    experience: '3 ans en communication digitale',
-    formation: 'Bac+4 en Communication',
-  },
-  4: {
-    id: 4,
-    nom: 'Dzivaguru',
-    prenom: 'Afi',
-    email: 'afi.dzivaguru@email.com',
-    telephone: '+228 93 44 55 66',
-    poste: 'Commercial Terrain',
-    date: '11/01/2025',
-    status: 'ACCEPTE',
-    type: 'CDD',
-    cvFile: 'CV_Afi_Dzivaguru.pdf',
-    lettreFile: 'Lettre_Motivation.pdf',
-    description: 'Commerciale dynamique avec expérience terrain.',
-    experience: '4 ans en vente terrain',
-    formation: 'Bac+2 en Commerce',
-  },
-  5: {
-    id: 5,
-    nom: 'Tossou',
-    prenom: 'Kwame',
-    email: 'kwame.tossou@email.com',
-    telephone: '+228 94 55 66 77',
-    poste: 'Stage – Designer UX/UI',
-    date: '15/01/2025',
-    status: 'REFUSE',
-    type: 'Stage',
-    cvFile: 'CV_Kwame_Tossou.pdf',
-    lettreFile: 'Lettre_Motivation.pdf',
-    description: 'Designer créatif avec un portfolio solide.',
-    experience: '1 an en freelance',
-    formation: 'Bac+3 en Design',
-  },
-  6: {
-    id: 6,
-    nom: 'Kpadenou',
-    prenom: 'Dodzi',
-    email: 'dodzi.kpadenou@email.com',
-    telephone: '+228 95 66 77 88',
-    poste: 'Responsable Comptable',
-    date: '14/01/2025',
-    status: 'EN_ATTENTE',
-    type: 'CDI',
-    cvFile: 'CV_Dodzi_Kpadenou.pdf',
-    lettreFile: 'Lettre_Motivation.pdf',
-    description: 'Expert comptable avec expérience en gestion financière.',
-    experience: '6 ans en comptabilité',
-    formation: 'Bac+5 en Comptabilité',
-  },
-};
-
-function StatusBadge({ status }: { status: CandidatureStatus }) {
+function StatusBadge({ status }: { status: Application['status'] }) {
   const style = STATUS_STYLES[status];
   return (
     <span
@@ -176,16 +61,81 @@ function SectionCard({
 export default function RHCandidatureDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const candidatureId = Number(id);
+  const [application, setApplication] = useState<Application | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const candidature = MOCK_CANDIDATURES[candidatureId];
+  useEffect(() => {
+    const loadApplication = async () => {
+      if (!id) return;
+      
+      setIsLoading(true);
+      setError(null);
+      try {
+        const apiCandidature = await api.getApplicationById(Number(id));
+        const mappedApplication = mapCandidature(apiCandidature);
+        setApplication(mappedApplication);
+      } catch (err: any) {
+        console.error('Erreur lors du chargement de la candidature:', err);
+        if (err.status === 404) {
+          setError('Candidature introuvable');
+        } else {
+          setError(err.message || 'Impossible de charger la candidature');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  if (!candidature) {
+    loadApplication();
+  }, [id]);
+
+  const handleAccept = async () => {
+    if (!application) return;
+    try {
+      await api.updateApplicationStatus(Number(application.id), mapStatusToBackend('ACCEPTED'));
+      // Recharger la candidature
+      const apiCandidature = await api.getApplicationById(Number(application.id));
+      const mappedApplication = mapCandidature(apiCandidature);
+      setApplication(mappedApplication);
+    } catch (err: any) {
+      console.error('Erreur lors de l\'acceptation:', err);
+      alert(err.message || 'Erreur lors de l\'acceptation');
+    }
+  };
+
+  const handleReject = async () => {
+    if (!application) return;
+    try {
+      await api.updateApplicationStatus(Number(application.id), mapStatusToBackend('REJECTED'));
+      // Recharger la candidature
+      const apiCandidature = await api.getApplicationById(Number(application.id));
+      const mappedApplication = mapCandidature(apiCandidature);
+      setApplication(mappedApplication);
+    } catch (err: any) {
+      console.error('Erreur lors du rejet:', err);
+      alert(err.message || 'Erreur lors du rejet');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: COLORS.midnight }} />
+      </div>
+    );
+  }
+
+  if (error || !application) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Candidature non trouvée</h2>
-          <p className="text-gray-600 mb-6">La candidature que vous recherchez n'existe pas.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {error === 'Candidature introuvable' ? 'Candidature non trouvée' : 'Erreur de chargement'}
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {error || 'Impossible de charger les détails de la candidature.'}
+          </p>
           <Link
             href="/rh/candidatures"
             className="inline-flex items-center gap-2 px-6 py-3 font-bold rounded-lg transition-all hover:opacity-90 shadow-sm"
@@ -198,14 +148,6 @@ export default function RHCandidatureDetailPage() {
       </div>
     );
   }
-
-  const handleAccept = () => {
-    alert('Candidature acceptée - fonctionnalité à implémenter avec le backend');
-  };
-
-  const handleReject = () => {
-    alert('Candidature refusée - fonctionnalité à implémenter avec le backend');
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -227,16 +169,16 @@ export default function RHCandidatureDetailPage() {
               className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full text-2xl font-bold text-white"
               style={{ backgroundColor: COLORS.midnight }}
             >
-              {candidature.prenom.charAt(0).toUpperCase()}
+              {application.nom.charAt(0).toUpperCase()}
             </div>
 
             {/* Informations */}
             <div className="flex-1">
               <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: COLORS.midnight }}>
-                {candidature.prenom} {candidature.nom}
+                {application.nom}
               </h1>
-              <p className="text-gray-600 mb-4">{candidature.poste}</p>
-              <StatusBadge status={candidature.status} />
+              <p className="text-gray-600 mb-4">{application.jobTitle}</p>
+              <StatusBadge status={application.status} />
             </div>
 
             {/* Actions */}
@@ -263,15 +205,9 @@ export default function RHCandidatureDetailPage() {
         {/* Informations personnelles */}
         <SectionCard icon={User} title="Informations personnelles">
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Nom</p>
-                <p className="font-semibold text-gray-900">{candidature.nom}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Prénoms</p>
-                <p className="font-semibold text-gray-900">{candidature.prenom}</p>
-              </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Nom</p>
+              <p className="font-semibold text-gray-900">{application.nom}</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -279,89 +215,31 @@ export default function RHCandidatureDetailPage() {
                 <p className="text-sm text-gray-500 mb-1">E-mail</p>
                 <p className="font-semibold text-gray-900 flex items-center gap-2">
                   <Mail size={16} className="text-gray-400" />
-                  {candidature.email}
+                  {application.email}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Téléphone</p>
-                <p className="font-semibold text-gray-900 flex items-center gap-2">
-                  <Phone size={16} className="text-gray-400" />
-                  {candidature.telephone}
-                </p>
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Parcours */}
-        <SectionCard icon={Briefcase} title="Parcours">
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Expérience</p>
-              <p className="font-semibold text-gray-900">{candidature.experience}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Formation</p>
-              <p className="font-semibold text-gray-900">{candidature.formation}</p>
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Documents */}
-        <SectionCard icon={FileText} title="Documents">
-          <div className="space-y-3">
-            {candidature.cvFile && (
-              <div className="flex items-center justify-between rounded-xl border border-gray-100 p-4">
-                <div className="flex items-center gap-3">
-                  <FileText size={20} className="text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{candidature.cvFile}</p>
-                    <p className="text-xs text-gray-500">PDF · 2.4 MB</p>
-                  </div>
+              {application.telephone && (
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Téléphone</p>
+                  <p className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Phone size={16} className="text-gray-400" />
+                    {application.telephone}
+                  </p>
                 </div>
-                <button className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                  <Download size={16} />
-                  Télécharger
-                </button>
-              </div>
-            )}
-            {candidature.lettreFile && (
-              <div className="flex items-center justify-between rounded-xl border border-gray-100 p-4">
-                <div className="flex items-center gap-3">
-                  <FileText size={20} className="text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{candidature.lettreFile}</p>
-                    <p className="text-xs text-gray-500">PDF · 1.2 MB</p>
-                  </div>
-                </div>
-                <button className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                  <Download size={16} />
-                  Télécharger
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </SectionCard>
 
-        {/* Description */}
-        {candidature.description && (
-          <SectionCard icon={Briefcase} title="Description du candidat">
-            <p className="text-gray-700 leading-relaxed">{candidature.description}</p>
-          </SectionCard>
-        )}
+        {/* Parcours - non disponible en base pour l'instant */}
+        {/* Documents - non disponibles en base pour l'instant */}
 
         {/* Informations candidature */}
         <SectionCard icon={Calendar} title="Informations de la candidature">
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Date de candidature</p>
-                <p className="font-semibold text-gray-900">{candidature.date}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Type de contrat</p>
-                <p className="font-semibold text-gray-900">{candidature.type}</p>
-              </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Date de candidature</p>
+              <p className="font-semibold text-gray-900">{new Date(application.createdAt).toLocaleDateString('fr-FR')}</p>
             </div>
           </div>
         </SectionCard>
