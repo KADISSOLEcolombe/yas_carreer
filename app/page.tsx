@@ -180,7 +180,7 @@ function HeroSection() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="max-w-full md:max-w-[50%] lg:max-w-[44%] xl:max-w-[40%] text-left">
           <h1 className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-bold leading-tight text-white md:text-[#1e3a8a] transition-colors duration-300">
-            Trouve ton <span className="text-[#facc15] md:text-[#3b82f6]">stage</span> ou ton emploi a yas Togo !
+            Trouve ton <span className="text-[#facc15] md:text-[#3b82f6]">stage</span> ou ton emploi à yas Togo !
           </h1>
         </div>
       </div>
