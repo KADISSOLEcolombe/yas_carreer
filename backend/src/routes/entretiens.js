@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { requireAuth, requireRole, requirePermission } = require('../middleware/auth');
+const { creerNotification } = require('./notifications');
 
 const router = express.Router();
 
@@ -67,6 +68,23 @@ router.post('/', requirePermission('planifier_entretien'), async (req, res) => {
     }
 
     const entretien = await prisma.entretien.create({ data, include: INCLUDE_FULL });
+
+    // Notifier le candidat de l'entretien planifié
+    const dateEntretien = new Date(date).toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    await creerNotification({
+      id_utilisateur: entretien.candidature.utilisateur.id,
+      titre: 'Entretien planifié 📅',
+      contenu: `Un entretien est planifié pour le poste "${entretien.candidature.offre.titre}" le ${dateEntretien}. Type : ${type === 'visio' ? 'Visioconférence' : 'Présentiel'}.`,
+      type: 'entretien',
+    });
+
     res.status(201).json(entretien);
   } catch (error) {
     console.error('Create entretien error:', error);
@@ -151,6 +169,26 @@ router.put('/:id', requirePermission('modifier_entretien'), async (req, res) => 
     }
 
     const entretien = await prisma.entretien.update({ where: { id }, data, include: INCLUDE_FULL });
+
+    // Notifier le candidat si le statut change
+    if (statut !== undefined && statut !== existing.statut) {
+      if (statut === 'TERMINE') {
+        await creerNotification({
+          id_utilisateur: entretien.candidature.utilisateur.id,
+          titre: 'Entretien terminé ✅',
+          contenu: `Votre entretien pour le poste "${entretien.candidature.offre.titre}" est terminé. Vous serez informé de la suite.`,
+          type: 'entretien',
+        });
+      } else if (statut === 'ANNULE') {
+        await creerNotification({
+          id_utilisateur: entretien.candidature.utilisateur.id,
+          titre: 'Entretien annulé ❌',
+          contenu: `L'entretien pour le poste "${entretien.candidature.offre.titre}" a été annulé.`,
+          type: 'entretien',
+        });
+      }
+    }
+
     res.json(entretien);
   } catch (error) {
     console.error('Update entretien error:', error);

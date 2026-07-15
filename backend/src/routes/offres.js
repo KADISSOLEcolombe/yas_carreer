@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { requireAuth, requireRole, requirePermission } = require('../middleware/auth');
+const { creerNotification } = require('./notifications');
 
 const router = express.Router();
 
@@ -152,6 +153,23 @@ router.put('/:id/statut', requireAuth, requirePermission('publier_offre'), async
     if (statut === 'PUBLIEE') data.date_publication = new Date();
 
     const offre = await prisma.offre.update({ where: { id }, data });
+
+    // Notifier tous les candidats quand une offre est publiée
+    if (statut === 'PUBLIEE') {
+      const candidats = await prisma.utilisateur.findMany({
+        where: { role: 'Candidat', supprime: false },
+      });
+
+      for (const candidat of candidats) {
+        await creerNotification({
+          id_utilisateur: candidat.id,
+          titre: 'Nouvelle offre publiée 💼',
+          contenu: `Une nouvelle offre "${offre.titre}" est disponible. Postulez maintenant !`,
+          type: 'offre',
+        });
+      }
+    }
+
     res.json(offre);
   } catch (error) {
     console.error('Update statut error:', error);

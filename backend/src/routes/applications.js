@@ -47,6 +47,20 @@ router.post('/', requireAuth, requirePermission('postuler'), async (req, res) =>
       },
     });
 
+    // Notifier tous les RH de la nouvelle candidature
+    const rhUsers = await prisma.utilisateur.findMany({
+      where: { role: 'RH', supprime: false },
+    });
+
+    for (const rh of rhUsers) {
+      await creerNotification({
+        id_utilisateur: rh.id,
+        titre: 'Nouvelle candidature',
+        contenu: `${req.user.prenom} ${req.user.nom} a postulé pour le poste de ${offre.titre}`,
+        type: 'candidature',
+      });
+    }
+
     res.status(201).json(candidature);
   } catch (error) {
     console.error('Postuler error:', error);
