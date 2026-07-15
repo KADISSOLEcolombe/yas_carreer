@@ -29,7 +29,7 @@ import {
   Coffee,
 } from 'lucide-react';
 import ApplicationModal from '../../../components/ApplicationModal';
-import { getJobById, getJobs, type Job } from '../../../lib/jobs';
+import { api, mapOffre, type Job } from '../../../lib/api';
 
 const COLORS = {
   yellow: '#facc15',
@@ -271,20 +271,42 @@ export default function JobDetailPage() {
   const { isAuthenticated, user } = useAuth();
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
   const [job, setJob] = useState<Job | undefined>(undefined);
-  const [loaded, setLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
-    setJob(getJobById(Number(id)));
-    setLoaded(true);
+    const loadJob = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const apiOffre = await api.getOffreById(Number(id));
+        const mappedJob = mapOffre(apiOffre);
+        setJob(mappedJob);
+      } catch (err: any) {
+        console.error('Erreur lors du chargement de l\'offre:', err);
+        if (err.status === 404) {
+          setError('Offre introuvable');
+        } else {
+          setError(err.message || 'Impossible de charger l\'offre');
+        }
+        setJob(undefined);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (id) {
+      loadJob();
+    }
   }, [id]);
 
   const similarOffers = useMemo(() => {
     if (!job) return [];
-    return getJobs()
-      .filter((j) => j.id !== job.id)
-      .slice(0, 3);
+    // Pour l'instant, on ne charge pas les offres similaires depuis l'API
+    // Cela nécessiterait un endpoint backend ou un appel à getOffres
+    return [];
   }, [job]);
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -299,7 +321,7 @@ export default function JobDetailPage() {
     }
   };
 
-  if (!loaded) {
+  if (isLoading) {
     return (
       <div className="min-h-screen pt-20 flex items-center justify-center bg-gray-50">
         <div
@@ -312,12 +334,16 @@ export default function JobDetailPage() {
     );
   }
 
-  if (!job) {
+  if (error || !job) {
     return (
       <div className="min-h-screen pt-20 flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Offre non trouvée</h2>
-          <p className="text-gray-600 mb-6">L&apos;offre que vous recherchez n&apos;existe pas ou n&apos;est plus disponible.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {error === 'Offre introuvable' ? 'Offre non trouvée' : 'Erreur de chargement'}
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {error || 'Impossible de charger les détails de l\'offre.'}
+          </p>
           <Link
             href="/offres"
             className="inline-flex items-center gap-2 px-6 py-3 font-bold rounded-lg transition-all hover:opacity-90 shadow-sm"
@@ -562,35 +588,8 @@ export default function JobDetailPage() {
                 </div>
               </section>
 
-              {/* Offres similaires */}
-              {similarOffers.length > 0 && (
-                <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-4">
-                    Offres similaires
-                  </h3>
-                  <ul className="space-y-4">
-                    {similarOffers.map((offer, index) => (
-                      <li key={offer.id}>
-                        {index > 0 && <hr className="border-gray-100 mb-4" />}
-                        <Link
-                          href={`/offres/${offer.id}`}
-                          className="block group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a8a] rounded-md"
-                        >
-                          <p
-                            className="font-semibold group-hover:underline mb-1"
-                            style={{ color: COLORS.midnight }}
-                          >
-                            {offer.title}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {offer.location} • {offer.type} • {offer.company}
-                          </p>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
+              {/* Offres similaires - désactivé pour l'instant */}
+              {/* similarOffers nécessiterait un appel API supplémentaire */}
             </aside>
           </div>
         </div>
@@ -602,7 +601,7 @@ export default function JobDetailPage() {
           onClose={() => setIsApplicationModalOpen(false)}
           jobId={job.id}
           jobTitle={job.title}
-          userId={user.id}
+          userId={String(user.id)}
           userNom={user.nom}
           userEmail={user.email}
         />

@@ -22,6 +22,41 @@ export interface RhStats {
   candidatesCount: number;
 }
 
+// Types pour les offres du backend
+export interface ApiOffre {
+  id: number;
+  titre: string;
+  type: string;
+  exigence: string;
+  localisation: string;
+  date_limite: string;
+  date_publication: string;
+  statut: string;
+  departement?: {
+    id: number;
+    nom: string;
+  };
+}
+
+// Types pour les offres du frontend (format attendu par les composants)
+export interface Job {
+  id: number;
+  title: string;
+  company: string;
+  location: string;
+  type: string;
+  department: string;
+  description: string;
+  postedDate: string;
+  deadline: string;
+  // Champs supplémentaires pour compatibilité avec JobOfferCard
+  category: string;
+  salary?: string;
+  requirements?: string;
+  responsibilities?: string;
+  createdAt?: string;
+}
+
 class ApiError extends Error {
   status: number;
 
@@ -79,6 +114,27 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+// Fonction de mapping : transforme une offre du backend vers le format frontend
+export function mapOffre(apiOffre: ApiOffre): Job {
+  return {
+    id: apiOffre.id,
+    title: apiOffre.titre,
+    company: 'YAS Togo', // Champ inexistant en base, valeur par défaut
+    location: apiOffre.localisation,
+    type: apiOffre.type,
+    department: apiOffre.departement?.nom || 'Non spécifié',
+    description: apiOffre.exigence,
+    postedDate: new Date(apiOffre.date_publication).toLocaleDateString('fr-FR'),
+    deadline: new Date(apiOffre.date_limite).toLocaleDateString('fr-FR'),
+    // Champs pour compatibilité avec JobOfferCard
+    category: apiOffre.departement?.nom || 'Technologie',
+    salary: 'À discuter',
+    requirements: apiOffre.exigence,
+    responsibilities: apiOffre.exigence,
+    createdAt: apiOffre.date_publication,
+  };
+}
+
 export const api = {
   login: async (email: string, password: string) => {
     const response = await request<{ user: User; token: string }>('/api/auth/login', {
@@ -128,6 +184,12 @@ export const api = {
         _count: { candidatures: number };
       }>
     >('/api/offres/rh/toutes'),
+
+  getOffres: () =>
+    request<ApiOffre[]>('/api/offres'),
+
+  getOffreById: (id: number) =>
+    request<ApiOffre>(`/api/offres/${id}`),
 };
 
 export { ApiError };

@@ -13,7 +13,7 @@ import {
   Users,
   ChevronRight,
 } from 'lucide-react';
-import type { Job } from '../lib/jobs';
+import type { Job } from '../lib/api';
 
 interface JobOfferCardProps {
   job: Job;

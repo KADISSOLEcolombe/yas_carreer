@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getJobs, resetJobsToDefaults, JOB_CATEGORIES, JOB_DEPARTMENTS, type Job } from '../../lib/jobs';
+import { api, mapOffre, type Job } from '../../lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Search, MapPin, Filter, Briefcase, ArrowLeft, Users, LogOut } from 'lucide-react';
@@ -165,61 +165,43 @@ export default function OffersPage() {
 
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
   const [filterType, setFilterType] = useState(initialType);
-  const [filterCategory, setFilterCategory] = useState('Toutes');
   const [filterDepartment, setFilterDepartment] = useState(searchParams.get('location') || 'Tous');
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const loadJobs = () => {
+  const loadJobs = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const loadedJobs = getJobs();
-      setJobs(loadedJobs);
-      setLoaded(true);
-    } catch (error) {
-      console.error('Erreur lors du chargement des offres:', error);
+      const apiOffres = await api.getOffres();
+      const mappedJobs = apiOffres.map(mapOffre);
+      setJobs(mappedJobs);
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des offres:', err);
+      setError(err.message || 'Impossible de charger les offres');
       setJobs([]);
-      setLoaded(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     loadJobs();
-
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === 'yas_jobs' || e.key === null) loadJobs();
-    };
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('focus', loadJobs);
-    window.addEventListener('yas-jobs-updated', loadJobs);
-
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('focus', loadJobs);
-      window.removeEventListener('yas-jobs-updated', loadJobs);
-    };
   }, []);
 
   const filteredJobs = jobs.filter((job) => {
     const q = searchTerm.toLowerCase();
     const matchesSearch = !q || job.title.toLowerCase().includes(q) || job.company.toLowerCase().includes(q);
     const matchesType = filterType === 'Tous' || job.type === filterType;
-    const matchesCategory = filterCategory === 'Toutes' || job.category === filterCategory;
     const matchesDepartment = filterDepartment === 'Tous' || job.department === filterDepartment;
-    return matchesSearch && matchesType && matchesCategory && matchesDepartment;
+    return matchesSearch && matchesType && matchesDepartment;
   });
 
   const activeFiltersCount = [
     filterType !== 'Tous',
-    filterCategory !== 'Toutes',
     filterDepartment !== 'Tous',
   ].filter(Boolean).length;
-
-  const handleReset = () => {
-    if (confirm('Réinitialiser toutes les offres aux valeurs par défaut ?')) {
-      resetJobsToDefaults();
-      loadJobs();
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -254,13 +236,6 @@ export default function OffersPage() {
                     {type}
                   </button>
                 ))}
-                <button
-                  onClick={handleReset}
-                  className="rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                  title="Réinitialiser les offres aux valeurs par défaut"
-                >
-                  Reinitialiser
-                </button>
               </div>
             </div>
           </div>
@@ -284,20 +259,6 @@ export default function OffersPage() {
               </div>
               {/* Filters row */}
               <div className="flex flex-wrap gap-3">
-                <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white min-w-[200px]">
-                  <Filter size={16} className="text-gray-400" />
-                  <select
-                    className="outline-none text-gray-900 bg-transparent text-sm w-full"
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                  >
-                    <option value="Toutes">Toutes les catégories</option>
-                    {JOB_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
                 <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-md bg-white min-w-[160px]">
                   <MapPin size={16} className="text-gray-400" />
                   <select
@@ -306,15 +267,15 @@ export default function OffersPage() {
                     onChange={(e) => setFilterDepartment(e.target.value)}
                   >
                     <option value="Tous">Tous les départements</option>
-                    {JOB_DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                    {Array.from(new Set(jobs.map(j => j.department))).map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
                     ))}
                   </select>
                 </div>
 
                 {activeFiltersCount > 0 && (
                   <button
-                    onClick={() => { setFilterType('Tous'); setFilterCategory('Toutes'); setFilterDepartment('Tous'); }}
+                    onClick={() => { setFilterType('Tous'); setFilterDepartment('Tous'); }}
                     className="px-4 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     Réinitialiser les filtres ({activeFiltersCount})
@@ -325,9 +286,22 @@ export default function OffersPage() {
           </div>
 
           {/* Jobs Grid */}
-          {!loaded ? (
+          {isLoading ? (
             <div className="flex items-center justify-center py-16">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: COLORS.midnight }} />
+            </div>
+          ) : error ? (
+            <div className="text-center py-16 bg-white border border-gray-200 rounded-lg">
+              <Briefcase size={48} className="mx-auto text-red-300 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Erreur de chargement</h3>
+              <p className="text-gray-600 max-w-md mx-auto mb-4">{error}</p>
+              <button
+                onClick={loadJobs}
+                className="px-4 py-2 text-sm font-medium text-white rounded-md hover:opacity-90"
+                style={{ backgroundColor: COLORS.midnight }}
+              >
+                Réessayer
+              </button>
             </div>
           ) : filteredJobs.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -338,9 +312,9 @@ export default function OffersPage() {
           ) : (
             <div className="text-center py-16 bg-white border border-gray-200 rounded-lg">
               <Briefcase size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune offre trouvée</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune offre disponible</h3>
               <p className="text-gray-600 max-w-md mx-auto">
-                Essayez de modifier vos critères de recherche pour trouver des opportunités correspondantes.
+                {jobs.length === 0 ? 'Aucune offre n\'est disponible pour le moment.' : 'Essayez de modifier vos critères de recherche pour trouver des opportunités correspondantes.'}
               </p>
             </div>
           )}

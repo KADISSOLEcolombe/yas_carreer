@@ -11,7 +11,7 @@ const COLORS = {
 interface ApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  jobId: number;
+  jobId: number | string;
   jobTitle: string;
   userId: string;
   userNom: string;
