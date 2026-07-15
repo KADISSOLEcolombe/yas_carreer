@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarDays, CheckCircle2, Clock3, Star, UserRound } from 'lucide-react';
+import { Clock3, Star } from 'lucide-react';
 import { CANDIDATS_A_EVALUER, DERNIERES_EVALUATIONS } from '../../../lib/superviseur-data';
 
 const STATUS_STYLES = {
@@ -10,7 +10,6 @@ const STATUS_STYLES = {
 const STAT_CARDS = [
   { label: 'Évaluations réalisées', value: 8, icon: Star, bg: '#DBEAFE', color: '#1E40AF' },
   { label: "En attente d'évaluation", value: 3, icon: Clock3, bg: '#FEF3C7', color: '#92400E' },
-  { label: 'Entretiens à venir', value: 2, icon: CalendarDays, bg: '#D1FAE5', color: '#065F46' },
 ];
 
 const initials = (value: string) => value.charAt(0).toUpperCase();
@@ -137,51 +136,6 @@ export default function SuperviseurDashboardPage() {
                 </div>
               );
             })}
-          </div>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#1e3a8a]">
-              <UserRound size={20} />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900">Rappels utiles</h3>
-              <p className="text-sm text-slate-500">Ce tableau reste une base de travail simple</p>
-            </div>
-          </div>
-          <div className="space-y-3 text-sm text-slate-600">
-            <p>• Clique sur Évaluer pour ouvrir plus tard un formulaire détaillé.</p>
-            <p>• La note, le statut et la date sont conservés dans l’interface mockée.</p>
-            <p>• Le contenu est volontairement statique pour brancher l’API ensuite.</p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-              <CheckCircle2 size={20} />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900">Prochaines actions</h3>
-              <p className="text-sm text-slate-500">Ce que le superviseur peut traiter maintenant</p>
-            </div>
-          </div>
-          <div className="space-y-3 text-sm text-slate-600">
-            <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-              <span>Évaluations en attente</span>
-              <strong className="text-slate-900">3</strong>
-            </div>
-            <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-              <span>Entretiens cette semaine</span>
-              <strong className="text-slate-900">2</strong>
-            </div>
-            <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-              <span>Dossiers déjà validés</span>
-              <strong className="text-slate-900">8</strong>
-            </div>
           </div>
         </div>
       </section>
