@@ -11,18 +11,6 @@ const initials = (value: string) => value.charAt(0).toUpperCase();
 export default function SuperviseurDashboardPage() {
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] bg-[#1e3a8a] px-6 py-8 text-white shadow-sm sm:px-8">
-        <div className="flex items-start gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#facc15] text-2xl font-black text-[#1e3a8a] shadow-lg">
-            S
-          </div>
-          <div>
-            <p className="text-2xl font-extrabold sm:text-3xl">Bonjour, Superviseur 👋</p>
-            <p className="mt-2 text-sm text-white/80">Espace Superviseur · YAS TOGO</p>
-          </div>
-        </div>
-      </section>
-
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-5 flex items-center justify-between gap-3">
