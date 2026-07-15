@@ -1,16 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Calendar, Plus, X } from 'lucide-react';
 import RhDashboardHeader from '../../../components/rh/RhDashboardHeader';
+import { api } from '../../../lib/api';
 
 const COLORS = {
   midnight: '#1e3a8a',
 };
 
-type EntretienType = 'Présentiel' | 'Visio';
+type EntretienType = 'presentiel' | 'visio';
 type EntretienStatus = 'PLANIFIE' | 'TERMINE' | 'ANNULE';
+
+interface ApiEntretien {
+  id: number;
+  date: string;
+  type: EntretienType;
+  statut: EntretienStatus;
+  commentaire: string | null;
+  lien_meeting: string | null;
+  plateforme: string | null;
+  duree: number | null;
+  candidature: {
+    id: number;
+    utilisateur: {
+      id: number;
+      nom: string;
+      prenom: string;
+      email: string;
+    };
+    offre: {
+      id: number;
+      titre: string;
+    };
+  };
+  utilisateur_entretien_utilisateurrh_idToutilisateur: {
+    id: number;
+    nom: string;
+    prenom: string;
+  };
+  utilisateur_entretien_utilisateursup_idToutilisateur?: {
+    id: number;
+    nom: string;
+    prenom: string;
+  };
+}
 
 interface Entretien {
   id: number;
@@ -21,11 +56,14 @@ interface Entretien {
   avec: string;
   type: EntretienType;
   statut: EntretienStatus;
+  lien_meeting?: string;
+  plateforme?: string;
+  duree?: number;
 }
 
 const TYPE_BADGE: Record<EntretienType, { bg: string; text: string }> = {
-  Présentiel: { bg: '#D1FAE5', text: '#065F46' },
-  Visio: { bg: '#DBEAFE', text: '#1E40AF' },
+  presentiel: { bg: '#D1FAE5', text: '#065F46' },
+  visio: { bg: '#DBEAFE', text: '#1E40AF' },
 };
 
 const STATUS_BADGE: Record<EntretienStatus, { bg: string; text: string; label: string }> = {
@@ -40,38 +78,46 @@ const ICON_STYLE: Record<EntretienStatus, { bg: string; color: string }> = {
   ANNULE: { bg: '#FEE2E2', color: '#DC2626' },
 };
 
-// Données d'exemple en dur — à remplacer par un appel API plus tard
-const MOCK_ENTRETIENS: Entretien[] = [
-  { id: 1, candidat: 'Kodjo Mensah', poste: 'Développeur Full Stack', date: '21/01/2025', heure: '10:00', avec: 'Marie Dupont', type: 'Présentiel', statut: 'PLANIFIE' },
-  { id: 2, candidat: 'Akossiwa Gnammi', poste: 'Stage – Analyste Business', date: '22/01/2025', heure: '14:30', avec: 'Jean Agbo', type: 'Visio', statut: 'PLANIFIE' },
-  { id: 3, candidat: 'Yao Agbemadon', poste: 'Chargé(e) de Communication', date: '19/01/2025', heure: '09:00', avec: 'Marie Dupont', type: 'Visio', statut: 'TERMINE' },
-];
-
-// Candidats disponibles pour la planification
-const MOCK_CANDIDATS = [
-  { id: 1, nom: 'Kodjo Mensah', poste: 'Développeur Full Stack', email: 'kodjo.mensah@email.com', telephone: '+228 90 11 22 33' },
-  { id: 2, nom: 'Akossiwa Gnammi', poste: 'Stage – Analyste Business', email: 'akossiwa.gnammi@email.com', telephone: '+228 91 22 33 44' },
-  { id: 3, nom: 'Yao Agbemadon', poste: 'Chargé(e) de Communication', email: 'yao.agbemadon@email.com', telephone: '+228 92 33 44 55' },
-  { id: 4, nom: 'Afi Dzivaguru', poste: 'Commercial Terrain', email: 'afi.dzivaguru@email.com', telephone: '+228 93 44 55 66' },
-];
-
 const EMPTY_FORM = {
   candidatId: '',
   date: '',
   heure: '',
   duree: '1h',
-  type: 'Présentiel' as EntretienType,
+  type: 'presentiel' as EntretienType,
   avec: 'Marie Dupont',
   notes: '',
   lienVisio: '',
   adresse: 'Bureau YAS Togo, Lomé',
 };
 
+function mapApiEntretien(apiEntretien: ApiEntretien): Entretien {
+  const dateObj = new Date(apiEntretien.date);
+  const date = dateObj.toLocaleDateString('fr-FR');
+  const heure = dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const avec = apiEntretien.utilisateur_entretien_utilisateurrh_idToutilisateur
+    ? `${apiEntretien.utilisateur_entretien_utilisateurrh_idToutilisateur.prenom} ${apiEntretien.utilisateur_entretien_utilisateurrh_idToutilisateur.nom}`
+    : 'Non assigné';
+
+  return {
+    id: apiEntretien.id,
+    candidat: `${apiEntretien.candidature.utilisateur.prenom} ${apiEntretien.candidature.utilisateur.nom}`,
+    poste: apiEntretien.candidature.offre.titre,
+    date,
+    heure,
+    avec,
+    type: apiEntretien.type,
+    statut: apiEntretien.statut,
+    lien_meeting: apiEntretien.lien_meeting || undefined,
+    plateforme: apiEntretien.plateforme || undefined,
+    duree: apiEntretien.duree || undefined,
+  };
+}
+
 function TypeBadge({ type }: { type: EntretienType }) {
   const style = TYPE_BADGE[type];
   return (
     <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: style.bg, color: style.text }}>
-      {type}
+      {type === 'presentiel' ? 'Présentiel' : 'Visio'}
     </span>
   );
 }
@@ -86,10 +132,33 @@ function StatusBadge({ statut }: { statut: EntretienStatus }) {
 }
 
 export default function RHEntretiensPage() {
-  const [entretiens, setEntretiens] = useState<Entretien[]>(MOCK_ENTRETIENS);
+  const [entretiens, setEntretiens] = useState<Entretien[]>([]);
+  const [apiEntretiens, setApiEntretiens] = useState<ApiEntretien[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadEntretiens = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const apiData = await api.getEntretiens();
+        setApiEntretiens(apiData);
+        const mappedData = apiData.map(mapApiEntretien);
+        setEntretiens(mappedData);
+      } catch (err: any) {
+        console.error('Erreur lors du chargement des entretiens:', err);
+        setError(err.message || 'Impossible de charger les entretiens');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadEntretiens();
+  }, []);
 
   const handleOpenModal = () => {
     setForm(EMPTY_FORM);
@@ -101,27 +170,40 @@ export default function RHEntretiensPage() {
     setForm(EMPTY_FORM);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const candidat = MOCK_CANDIDATS.find((c) => c.id === Number(form.candidatId));
-    if (!candidat) return;
+    try {
+      // Combiner date et heure pour créer un datetime complet
+      const dateTime = new Date(`${form.date}T${form.heure}`);
+      
+      const data = {
+        date: dateTime.toISOString(),
+        type: form.type,
+        statut: 'PLANIFIE',
+        commentaire: form.notes || null,
+        id_candidature: Number(form.candidatId),
+        lien_meeting: form.type === 'visio' ? form.lienVisio : null,
+        plateforme: form.type === 'visio' ? 'Zoom' : null,
+        duree: form.type === 'visio' ? parseInt(form.duree) : null,
+      };
 
-    const newEntretien: Entretien = {
-      id: entretiens.length + 1,
-      candidat: candidat.nom,
-      poste: candidat.poste,
-      date: new Date(form.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-      heure: form.heure,
-      avec: form.avec,
-      type: form.type,
-      statut: 'PLANIFIE',
-    };
-
-    setEntretiens([...entretiens, newEntretien]);
-    setIsSubmitting(false);
-    handleCloseModal();
+      await api.createEntretien(data);
+      
+      // Recharger la liste
+      const apiData = await api.getEntretiens();
+      setApiEntretiens(apiData);
+      const mappedData = apiData.map(mapApiEntretien);
+      setEntretiens(mappedData);
+      
+      setIsSubmitting(false);
+      handleCloseModal();
+    } catch (err: any) {
+      console.error('Erreur lors de la création:', err);
+      alert(err.message || 'Erreur lors de la création');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -143,37 +225,47 @@ export default function RHEntretiensPage() {
       </div>
 
       <div className="space-y-4">
-        {entretiens.map((entretien) => {
-          const iconStyle = ICON_STYLE[entretien.statut];
-          return (
-            <Link
-              key={entretien.id}
-              href={`/rh/entretiens/${entretien.id}`}
-              className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm transition-colors hover:bg-gray-50"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <div
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-                  style={{ backgroundColor: iconStyle.bg, color: iconStyle.color }}
-                >
-                  <Calendar size={18} />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-400" />
+          </div>
+        ) : error ? (
+          <p className="text-center text-red-600 py-12">{error}</p>
+        ) : entretiens.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">Aucun entretien planifié</p>
+        ) : (
+          entretiens.map((entretien) => {
+            const iconStyle = ICON_STYLE[entretien.statut];
+            return (
+              <Link
+                key={entretien.id}
+                href={`/rh/entretiens/${entretien.id}`}
+                className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm transition-colors hover:bg-gray-50"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: iconStyle.bg, color: iconStyle.color }}
+                  >
+                    <Calendar size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-gray-900">{entretien.candidat}</p>
+                    <p className="truncate text-sm text-gray-500">{entretien.poste}</p>
+                    <p className="truncate text-sm text-gray-500">
+                      {entretien.date} à {entretien.heure} · {entretien.avec}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate font-bold text-gray-900">{entretien.candidat}</p>
-                  <p className="truncate text-sm text-gray-500">{entretien.poste}</p>
-                  <p className="truncate text-sm text-gray-500">
-                    {entretien.date} à {entretien.heure} · {entretien.avec}
-                  </p>
-                </div>
-              </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <TypeBadge type={entretien.type} />
-                <StatusBadge statut={entretien.statut} />
-              </div>
-            </Link>
-          );
-        })}
+                <div className="flex shrink-0 items-center gap-2">
+                  <TypeBadge type={entretien.type} />
+                  <StatusBadge statut={entretien.statut} />
+                </div>
+              </Link>
+            );
+          })
+        )}
       </div>
 
       {/* Modale de planification d'entretien */}
@@ -192,17 +284,17 @@ export default function RHEntretiensPage() {
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Candidat *</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Candidature *</label>
                 <select
                   required
                   value={form.candidatId}
                   onChange={(e) => setForm({ ...form, candidatId: e.target.value })}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                 >
-                  <option value="">Sélectionner un candidat</option>
-                  {MOCK_CANDIDATS.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nom} - {c.poste}
+                  <option value="">Sélectionner une candidature</option>
+                  {apiEntretiens.map((entretien) => (
+                    <option key={entretien.candidature.id} value={entretien.candidature.id}>
+                      {entretien.candidature.utilisateur.prenom} {entretien.candidature.utilisateur.nom} - {entretien.candidature.offre.titre}
                     </option>
                   ))}
                 </select>
@@ -239,11 +331,11 @@ export default function RHEntretiensPage() {
                     onChange={(e) => setForm({ ...form, duree: e.target.value })}
                     className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                   >
-                    <option value="30min">30 minutes</option>
-                    <option value="45min">45 minutes</option>
-                    <option value="1h">1 heure</option>
-                    <option value="1h30">1h30</option>
-                    <option value="2h">2 heures</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">1 heure</option>
+                    <option value="90">1h30</option>
+                    <option value="120">2 heures</option>
                   </select>
                 </div>
                 <div>
@@ -253,41 +345,20 @@ export default function RHEntretiensPage() {
                     onChange={(e) => setForm({ ...form, type: e.target.value as EntretienType })}
                     className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                   >
-                    <option value="Présentiel">Présentiel</option>
-                    <option value="Visio">Visio</option>
+                    <option value="presentiel">Présentiel</option>
+                    <option value="visio">Visio</option>
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Entretien avec</label>
-                <input
-                  value={form.avec}
-                  onChange={(e) => setForm({ ...form, avec: e.target.value })}
-                  placeholder="Ex: Marie Dupont"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
-                />
-              </div>
-
-              {form.type === 'Visio' && (
+              {form.type === 'visio' && (
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Lien de visioconférence</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Lien de visioconférence *</label>
                   <input
+                    required
                     value={form.lienVisio}
                     onChange={(e) => setForm({ ...form, lienVisio: e.target.value })}
                     placeholder="Ex: https://meet.google.com/abc-defg-hij"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
-                  />
-                </div>
-              )}
-
-              {form.type === 'Présentiel' && (
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Adresse</label>
-                  <input
-                    value={form.adresse}
-                    onChange={(e) => setForm({ ...form, adresse: e.target.value })}
-                    placeholder="Ex: Bureau YAS Togo, Lomé"
                     className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                   />
                 </div>

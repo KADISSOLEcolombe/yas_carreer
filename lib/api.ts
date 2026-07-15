@@ -341,6 +341,53 @@ export const api = {
     request<{ message: string }>(`/api/offres/${id}`, {
       method: 'DELETE',
     }),
+
+  // Entretiens
+  createEntretien: (data: {
+    date: string;
+    type: 'presentiel' | 'visio';
+    statut?: string;
+    commentaire?: string;
+    id_candidature: number;
+    utilisateursup_id?: number;
+    lien_meeting?: string;
+    plateforme?: string;
+    duree?: number;
+  }) =>
+    request<any>('/api/entretiens', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getEntretiens: () =>
+    request<any[]>('/api/entretiens', {
+      method: 'GET',
+    }),
+
+  getEntretienById: (id: number) =>
+    request<any>(`/api/entretiens/${id}`, {
+      method: 'GET',
+    }),
+
+  updateEntretien: (id: number, data: {
+    date?: string;
+    type?: 'presentiel' | 'visio';
+    statut?: string;
+    commentaire?: string;
+    utilisateursup_id?: number;
+    lien_meeting?: string;
+    plateforme?: string;
+    duree?: number;
+  }) =>
+    request<any>(`/api/entretiens/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteEntretien: (id: number) =>
+    request<{ message: string }>(`/api/entretiens/${id}`, {
+      method: 'DELETE',
+    }),
 };
 
 export { ApiError };
