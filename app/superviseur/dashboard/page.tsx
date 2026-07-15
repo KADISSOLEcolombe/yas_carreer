@@ -12,33 +12,13 @@ export default function SuperviseurDashboardPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-[28px] bg-[#1e3a8a] px-6 py-8 text-white shadow-sm sm:px-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#facc15] text-2xl font-black text-[#1e3a8a] shadow-lg">
-              S
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold sm:text-3xl">Bonjour, Superviseur 👋</p>
-              <p className="mt-2 text-sm text-white/80">Espace Superviseur · YAS TOGO</p>
-            </div>
+        <div className="flex items-start gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#facc15] text-2xl font-black text-[#1e3a8a] shadow-lg">
+            S
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:w-[420px]">
-            <div className="rounded-2xl bg-white/10 p-3 text-center backdrop-blur">
-              <p className="text-xs text-white/70">Rôle</p>
-              <p className="mt-1 font-semibold">Superviseur</p>
-            </div>
-            <div className="rounded-2xl bg-white/10 p-3 text-center backdrop-blur">
-              <p className="text-xs text-white/70">Portefeuille</p>
-              <p className="mt-1 font-semibold">12 candidats</p>
-            </div>
-            <div className="rounded-2xl bg-white/10 p-3 text-center backdrop-blur">
-              <p className="text-xs text-white/70">Aujourd'hui</p>
-              <p className="mt-1 font-semibold">3 entretiens</p>
-            </div>
-            <div className="rounded-2xl bg-white/10 p-3 text-center backdrop-blur">
-              <p className="text-xs text-white/70">À traiter</p>
-              <p className="mt-1 font-semibold">3 évaluations</p>
-            </div>
+          <div>
+            <p className="text-2xl font-extrabold sm:text-3xl">Bonjour, Superviseur 👋</p>
+            <p className="mt-2 text-sm text-white/80">Espace Superviseur · YAS TOGO</p>
           </div>
         </div>
       </section>
