@@ -154,12 +154,21 @@ export default function ApplicationModal({
 
     setIsSubmitting(true);
     try {
-      // Pour l'instant, on envoie seulement l'id_offre au backend
-      // Le backend n'attend que id_offre pour créer la candidature
-      await api.postuler({
+      // 1. Créer la candidature
+      const candidature = await api.postuler({
         id_offre: Number(jobId),
-        lettre_motivation: '', // À implémenter plus tard avec upload de fichiers
+        lettre_motivation: '',
       });
+      
+      // 2. Uploader le CV si présent
+      if (cvFile) {
+        await api.uploadFile(cvFile, candidature.id, 'CV');
+      }
+      
+      // 3. Uploader la lettre de motivation si présente
+      if (lettreFile) {
+        await api.uploadFile(lettreFile, candidature.id, 'Lettre de motivation');
+      }
       
       // Succès : fermer la modale
       onClose();

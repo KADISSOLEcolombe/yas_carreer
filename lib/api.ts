@@ -124,9 +124,13 @@ function clearToken(): void {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+
+  // Ajoute Content-Type automatiquement sauf pour FormData
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   // Ajoute automatiquement le header Authorization si un token existe
   const token = getToken();
@@ -386,6 +390,29 @@ export const api = {
 
   deleteEntretien: (id: number) =>
     request<{ message: string }>(`/api/entretiens/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Fichiers
+  uploadFile: (file: File, id_candidature: number, libelle?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('id_candidature', id_candidature.toString());
+    if (libelle) formData.append('libelle', libelle);
+
+    return request<{ id: number; libelle: string; chemin: string; extension: string; id_candidature: number }>('/api/files/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  getFilesByCandidature: (id_candidature: number) =>
+    request<{ id: number; libelle: string; chemin: string; extension: string; id_candidature: number }[]>(`/api/files/candidature/${id_candidature}`, {
+      method: 'GET',
+    }),
+
+  deleteFile: (id: number) =>
+    request<{ message: string }>(`/api/files/${id}`, {
       method: 'DELETE',
     }),
 };

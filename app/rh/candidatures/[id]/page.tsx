@@ -62,6 +62,7 @@ export default function RHCandidatureDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [application, setApplication] = useState<Application | null>(null);
+  const [files, setFiles] = useState<{ id: number; libelle: string; chemin: string; extension: string; id_candidature: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +76,10 @@ export default function RHCandidatureDetailPage() {
         const apiCandidature = await api.getApplicationById(Number(id));
         const mappedApplication = mapCandidature(apiCandidature);
         setApplication(mappedApplication);
+        
+        // Charger les fichiers de la candidature
+        const fichiers = await api.getFilesByCandidature(Number(id));
+        setFiles(fichiers);
       } catch (err: any) {
         console.error('Erreur lors du chargement de la candidature:', err);
         if (err.status === 404) {
@@ -231,8 +236,34 @@ export default function RHCandidatureDetailPage() {
           </div>
         </SectionCard>
 
-        {/* Parcours - non disponible en base pour l'instant */}
-        {/* Documents - non disponibles en base pour l'instant */}
+        {/* Documents */}
+        <SectionCard icon={FileText} title="Documents">
+          <div className="space-y-4">
+            {files.length === 0 ? (
+              <p className="text-gray-500">Aucun document disponible</p>
+            ) : (
+              files.map((file) => (
+                <div key={file.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText size={18} className="text-gray-400" />
+                    <div>
+                      <p className="font-medium text-gray-900">{file.libelle}</p>
+                      <p className="text-sm text-gray-500">{file.extension.toUpperCase()}</p>
+                    </div>
+                  </div>
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${file.chemin}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  >
+                    Télécharger
+                  </a>
+                </div>
+              ))
+            )}
+          </div>
+        </SectionCard>
 
         {/* Informations candidature */}
         <SectionCard icon={Calendar} title="Informations de la candidature">
