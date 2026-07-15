@@ -53,9 +53,9 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     try {
       await register(name, email, password);
-      router.push(redirect);
-    } catch (err) {
-      setError("Une erreur est survenue lors de l'inscription");
+      // La redirection est gérée automatiquement par la fonction register
+    } catch (err: any) {
+      setError(err.message || "Une erreur est survenue lors de l'inscription");
     } finally {
       setIsSubmitting(false);
     }
@@ -253,7 +253,7 @@ export default function RegisterPage() {
           <div className="mt-8 border-t border-gray-200 pt-6 text-center">
             <p className="mb-3 text-sm text-gray-500">Déjà un compte ?</p>
             <Link
-              href={`/login?redirect=${redirect}`}
+              href="/login"
               className="block w-full rounded-xl border py-3 text-sm font-bold transition-colors hover:bg-blue-50"
               style={{ borderColor: COLORS.midnight, color: COLORS.midnight }}
             >

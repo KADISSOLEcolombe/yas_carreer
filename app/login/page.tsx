@@ -22,17 +22,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { loginCandidate, isAuthenticated, isCandidate } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/';
   const message = searchParams.get('message');
 
   useEffect(() => {
-    if (isAuthenticated && isCandidate) {
-      router.push(redirect);
+    if (isAuthenticated) {
+      // La redirection est gérée par la fonction login selon le rôle
+      router.push('/');
     }
-  }, [isAuthenticated, isCandidate, router, redirect]);
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,10 +40,10 @@ export default function LoginPage() {
     setIsSubmitting(true);
     
     try {
-      await loginCandidate(email, password);
-      router.push(redirect);
-    } catch (err) {
-      setError('Identifiants invalides');
+      await login(email, password);
+      // La redirection est gérée automatiquement par la fonction login
+    } catch (err: any) {
+      setError(err.message || 'Identifiants invalides');
     } finally {
       setIsSubmitting(false);
     }
@@ -163,14 +163,8 @@ export default function LoginPage() {
           <div className="mt-8 pt-6 border-t border-gray-200 text-center space-y-2">
             <p className="text-sm text-gray-600">
               Vous n'avez pas de compte ? 
-              <Link href={`/register?redirect=${redirect}`} className="ml-1 font-medium text-blue-600 hover:text-blue-500">
+              <Link href="/register" className="ml-1 font-medium text-blue-600 hover:text-blue-500">
                 Créer un compte
-              </Link>
-            </p>
-            <p className="text-sm text-gray-500">
-              Responsable RH ?{' '}
-              <Link href="/rh/login" className="font-medium text-blue-600 hover:text-blue-500">
-                Accéder à l'espace RH
               </Link>
             </p>
           </div>
