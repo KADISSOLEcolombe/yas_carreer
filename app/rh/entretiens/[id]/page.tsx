@@ -1,25 +1,49 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, MapPin, Video, User, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { api } from '../../../../lib/api';
 
 const COLORS = {
   midnight: '#1e3a8a',
   yellow: '#facc15',
 };
 
-type EntretienType = 'Présentiel' | 'Visio';
+type EntretienType = 'presentiel' | 'visio';
 type EntretienStatus = 'PLANIFIE' | 'TERMINE' | 'ANNULE';
 
-const STATUS_STYLES: Record<EntretienStatus, { bg: string; text: string; label: string; icon: React.ElementType }> = {
-  PLANIFIE: { bg: '#FEF3C7', text: '#92400E', label: 'Planifié', icon: AlertCircle },
-  TERMINE: { bg: '#D1FAE5', text: '#065F46', label: 'Terminé', icon: CheckCircle },
-  ANNULE: { bg: '#FEE2E2', text: '#DC2626', label: 'Annulé', icon: XCircle },
-};
+interface ApiEntretien {
+  id: number;
+  date: string;
+  type: EntretienType;
+  statut: EntretienStatus;
+  commentaire: string | null;
+  lien_meeting: string | null;
+  plateforme: string | null;
+  duree: number | null;
+  candidature: {
+    id: number;
+    utilisateur: {
+      id: number;
+      nom: string;
+      prenom: string;
+      email: string;
+    };
+    offre: {
+      id: number;
+      titre: string;
+    };
+  };
+  utilisateur_entretien_utilisateurrh_idToutilisateur: {
+    id: number;
+    nom: string;
+    prenom: string;
+  };
+}
 
-// TODO : à remplacer par les vraies données quand le backend sera connecté
-const MOCK_ENTRETIENS: Record<number, {
+interface Entretien {
   id: number;
   candidat: string;
   poste: string;
@@ -30,57 +54,42 @@ const MOCK_ENTRETIENS: Record<number, {
   type: EntretienType;
   statut: EntretienStatus;
   email?: string;
-  telephone?: string;
   notes?: string;
-  lienVisio?: string;
-  adresse?: string;
-}> = {
-  1: {
-    id: 1,
-    candidat: 'Kodjo Mensah',
-    poste: 'Développeur Full Stack',
-    date: '21/01/2025',
-    heure: '10:00',
-    duree: '1h',
-    avec: 'Marie Dupont',
-    type: 'Présentiel',
-    statut: 'PLANIFIE',
-    email: 'kodjo.mensah@email.com',
-    telephone: '+228 90 11 22 33',
-    notes: 'Premier entretien technique',
-    adresse: 'Bureau YAS Togo, Lomé',
-  },
-  2: {
-    id: 2,
-    candidat: 'Akossiwa Gnammi',
-    poste: 'Stage – Analyste Business',
-    date: '22/01/2025',
-    heure: '14:30',
-    duree: '45min',
-    avec: 'Jean Agbo',
-    type: 'Visio',
-    statut: 'PLANIFIE',
-    email: 'akossiwa.gnammi@email.com',
-    telephone: '+228 91 22 33 44',
-    notes: 'Entretien avec le responsable du stage',
-    lienVisio: 'https://meet.google.com/abc-defg-hij',
-  },
-  3: {
-    id: 3,
-    candidat: 'Yao Agbemadon',
-    poste: 'Chargé(e) de Communication',
-    date: '19/01/2025',
-    heure: '09:00',
-    duree: '1h',
-    avec: 'Marie Dupont',
-    type: 'Visio',
-    statut: 'TERMINE',
-    email: 'yao.agbemadon@email.com',
-    telephone: '+228 92 33 44 55',
-    notes: 'Entretien très positif, candidature à retenir',
-    lienVisio: 'https://meet.google.com/xyz-uvwx-yz',
-  },
+  lien_meeting?: string;
+  plateforme?: string;
+}
+
+const STATUS_STYLES: Record<EntretienStatus, { bg: string; text: string; label: string; icon: React.ElementType }> = {
+  PLANIFIE: { bg: '#FEF3C7', text: '#92400E', label: 'Planifié', icon: AlertCircle },
+  TERMINE: { bg: '#D1FAE5', text: '#065F46', label: 'Terminé', icon: CheckCircle },
+  ANNULE: { bg: '#FEE2E2', text: '#DC2626', label: 'Annulé', icon: XCircle },
 };
+
+function mapApiEntretien(apiEntretien: ApiEntretien): Entretien {
+  const dateObj = new Date(apiEntretien.date);
+  const date = dateObj.toLocaleDateString('fr-FR');
+  const heure = dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const avec = apiEntretien.utilisateur_entretien_utilisateurrh_idToutilisateur
+    ? `${apiEntretien.utilisateur_entretien_utilisateurrh_idToutilisateur.prenom} ${apiEntretien.utilisateur_entretien_utilisateurrh_idToutilisateur.nom}`
+    : 'Non assigné';
+  const duree = apiEntretien.duree ? `${apiEntretien.duree} min` : 'Non spécifié';
+
+  return {
+    id: apiEntretien.id,
+    candidat: `${apiEntretien.candidature.utilisateur.prenom} ${apiEntretien.candidature.utilisateur.nom}`,
+    poste: apiEntretien.candidature.offre.titre,
+    date,
+    heure,
+    duree,
+    avec,
+    type: apiEntretien.type,
+    statut: apiEntretien.statut,
+    email: apiEntretien.candidature.utilisateur.email,
+    notes: apiEntretien.commentaire || undefined,
+    lien_meeting: apiEntretien.lien_meeting || undefined,
+    plateforme: apiEntretien.plateforme || undefined,
+  };
+}
 
 function SectionCard({
   icon: Icon,
@@ -126,16 +135,53 @@ function StatusBadge({ status }: { status: EntretienStatus }) {
 export default function RHEntretienDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const entretienId = Number(id);
+  const [entretien, setEntretien] = useState<Entretien | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const entretien = MOCK_ENTRETIENS[entretienId];
+  useEffect(() => {
+    const loadEntretien = async () => {
+      if (!id) return;
+      
+      setIsLoading(true);
+      setError(null);
+      try {
+        const apiEntretien = await api.getEntretienById(Number(id));
+        const mappedEntretien = mapApiEntretien(apiEntretien);
+        setEntretien(mappedEntretien);
+      } catch (err: any) {
+        console.error('Erreur lors du chargement de l\'entretien:', err);
+        if (err.status === 404) {
+          setError('Entretien introuvable');
+        } else {
+          setError(err.message || 'Impossible de charger l\'entretien');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  if (!entretien) {
+    loadEntretien();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: COLORS.midnight }} />
+      </div>
+    );
+  }
+
+  if (error || !entretien) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Entretien non trouvé</h2>
-          <p className="text-gray-600 mb-6">L'entretien que vous recherchez n'existe pas.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {error === 'Entretien introuvable' ? 'Entretien non trouvé' : 'Erreur de chargement'}
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {error || 'Impossible de charger les détails de l\'entretien.'}
+          </p>
           <Link
             href="/rh/entretiens"
             className="inline-flex items-center gap-2 px-6 py-3 font-bold rounded-lg transition-all hover:opacity-90 shadow-sm"
@@ -149,12 +195,29 @@ export default function RHEntretienDetailPage() {
     );
   }
 
-  const handleAnnuler = () => {
-    alert('Annulation de l\'entretien - fonctionnalité à implémenter avec le backend');
+  const handleAnnuler = async () => {
+    if (!entretien) return;
+    try {
+      await api.deleteEntretien(entretien.id);
+      router.push('/rh/entretiens');
+    } catch (err: any) {
+      console.error('Erreur lors de l\'annulation:', err);
+      alert(err.message || 'Erreur lors de l\'annulation');
+    }
   };
 
-  const handleCompleter = () => {
-    alert('Marquer comme terminé - fonctionnalité à implémenter avec le backend');
+  const handleCompleter = async () => {
+    if (!entretien) return;
+    try {
+      await api.updateEntretien(entretien.id, { statut: 'TERMINE' });
+      // Recharger l'entretien
+      const apiEntretien = await api.getEntretienById(entretien.id);
+      const mappedEntretien = mapApiEntretien(apiEntretien);
+      setEntretien(mappedEntretien);
+    } catch (err: any) {
+      console.error('Erreur lors de la mise à jour:', err);
+      alert(err.message || 'Erreur lors de la mise à jour');
+    }
   };
 
   return (
@@ -189,7 +252,7 @@ export default function RHEntretienDetailPage() {
               <div className="flex flex-wrap gap-2">
                 <StatusBadge status={entretien.statut} />
                 <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
-                  {entretien.type}
+                  {entretien.type === 'visio' ? 'Visio' : 'Présentiel'}
                 </span>
               </div>
             </div>
@@ -245,12 +308,12 @@ export default function RHEntretienDetailPage() {
               <div>
                 <p className="text-sm text-gray-500 mb-1">Type</p>
                 <p className="font-semibold text-gray-900 flex items-center gap-2">
-                  {entretien.type === 'Visio' ? (
+                  {entretien.type === 'visio' ? (
                     <Video size={16} className="text-gray-400" />
                   ) : (
                     <MapPin size={16} className="text-gray-400" />
                   )}
-                  {entretien.type}
+                  {entretien.type === 'visio' ? 'Visio' : 'Présentiel'}
                 </p>
               </div>
             </div>
@@ -263,11 +326,11 @@ export default function RHEntretienDetailPage() {
               </p>
             </div>
 
-            {entretien.type === 'Visio' && entretien.lienVisio && (
+            {entretien.type === 'visio' && entretien.lien_meeting && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Lien de visioconférence</p>
                 <a
-                  href={entretien.lienVisio}
+                  href={entretien.lien_meeting}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-2"
@@ -278,15 +341,7 @@ export default function RHEntretienDetailPage() {
               </div>
             )}
 
-            {entretien.type === 'Présentiel' && entretien.adresse && (
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Adresse</p>
-                <p className="font-semibold text-gray-900 flex items-center gap-2">
-                  <MapPin size={16} className="text-gray-400" />
-                  {entretien.adresse}
-                </p>
-              </div>
-            )}
+            {/* Adresse - non disponible en base pour l'instant */}
           </div>
         </SectionCard>
 
@@ -299,12 +354,7 @@ export default function RHEntretienDetailPage() {
                 <p className="font-semibold text-gray-900">{entretien.email}</p>
               </div>
             )}
-            {entretien.telephone && (
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Téléphone</p>
-                <p className="font-semibold text-gray-900">{entretien.telephone}</p>
-              </div>
-            )}
+            {/* Téléphone - non disponible en base pour l'instant */}
           </div>
         </SectionCard>
 
