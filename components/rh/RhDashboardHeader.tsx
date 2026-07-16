@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Briefcase, FileText, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import NotificationBell from '../NotificationBell';
 
 const COLORS = {
   midnight: '#1e3a8a',
@@ -31,6 +32,7 @@ export default function RhDashboardHeader() {
           </h1>
           <p className="text-gray-500">Bienvenue, {user?.nom || 'Marie Dupont'}</p>
         </div>
+        <NotificationBell />
       </div>
 
       {/* Barre d'onglets */}

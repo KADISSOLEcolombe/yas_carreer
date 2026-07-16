@@ -415,6 +415,27 @@ export const api = {
     request<{ message: string }>(`/api/files/${id}`, {
       method: 'DELETE',
     }),
+
+  // Notifications
+  getNotifications: () =>
+    request<any[]>('/api/notifications', {
+      method: 'GET',
+    }),
+
+  getUnreadNotifications: () =>
+    request<{ count: number; notifications: any[] }>('/api/notifications/non-lues', {
+      method: 'GET',
+    }),
+
+  markAsRead: (id: number) =>
+    request<any>(`/api/notifications/${id}/lu`, {
+      method: 'PUT',
+    }),
+
+  markAllAsRead: () =>
+    request<{ message: string }>('/api/notifications/tout-lu', {
+      method: 'PUT',
+    }),
 };
 
 export { ApiError };

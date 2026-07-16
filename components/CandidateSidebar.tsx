@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { LayoutDashboard, Briefcase, Calendar, Bell, User, Search, LogOut, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import NotificationBell from './NotificationBell';
 
 const COLORS = {
   yellow: '#facc15',
@@ -49,17 +50,20 @@ export default function CandidateSidebar({ activeTab, onSelect, open, onClose }:
         </div>
 
         {/* Bloc profil */}
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-5">
-          <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-bold"
-            style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
-          >
-            {initial}
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-5">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-bold"
+              style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
+            >
+              {initial}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900">{user?.nom || 'Candidat'}</p>
+              <p className="truncate text-xs text-gray-500">{user?.email}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-gray-900">{user?.nom || 'Candidat'}</p>
-            <p className="truncate text-xs text-gray-500">{user?.email}</p>
-          </div>
+          <NotificationBell />
         </div>
 
         {/* Navigation */}
