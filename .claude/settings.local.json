@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(cd \"c:\\\\Users\\\\HP\\\\Documents\\\\yas career\\\\backend\"; $env:DATABASE_URL=\"postgresql://postgres:colombe%402005@localhost:5432/mon_projet\"; node -e \"require\\('dotenv'\\).config\\(\\); const {Pool} = require\\('pg'\\); const pool = new Pool\\({connectionString: process.env.DATABASE_URL}\\); pool.query\\('SELECT 1'\\).then\\(\\(\\) => { console.log\\('DB CONNECTEE OK'\\); pool.end\\(\\); }\\).catch\\(e => { console.error\\('ERREUR DB:', e.message\\); pool.end\\(\\); }\\);\" 2>&1)",
-      "PowerShell(cd \"c:\\\\Users\\\\HP\\\\Documents\\\\yas career\\\\backend\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"src/index.js\" -PassThru -RedirectStandardOutput \"server_out.txt\" -RedirectStandardError \"server_err.txt\"; Start-Sleep -Seconds 4; Get-Content server_out.txt; Get-Content server_err.txt; $proc.Kill\\(\\); Remove-Item server_out.txt, server_err.txt 2>$null)",
-      "PowerShell(cd \"c:\\\\Users\\\\HP\\\\Documents\\\\yas career\\\\backend\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"src/index.js\" -PassThru -RedirectStandardError \"server_err2.txt\"; Start-Sleep -Seconds 3; try { $r = Invoke-WebRequest -Uri \"http://localhost:3001/api/health\" -UseBasicParsing -TimeoutSec 5; Write-Output \"STATUS: $\\($r.StatusCode\\)\"; Write-Output \"BODY: $\\($r.Content\\)\" } catch { Write-Output \"ERREUR HTTP: $_\" }; $proc.Kill\\(\\); if \\(Test-Path server_err2.txt\\) { $e = Get-Content server_err2.txt; if \\($e\\) { Write-Output \"STDERR: $e\" }; Remove-Item server_err2.txt } 2>&1)"
-    ]
-  }
-}
