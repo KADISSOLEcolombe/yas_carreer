@@ -17,10 +17,17 @@ model Utilisateur {
   type                                               String               @db.VarChar(50)
   supprime                                           Boolean?
   nom                                                String               @db.VarChar(100)
+  sexe                                               String?              @db.VarChar(20)
+  ville                                              String?              @db.VarChar(100)
+  annees_experience                                  Int?
+  niveau_etude                                       String?              @db.VarChar(50)
+  domaine_etudes                                     String?              @db.VarChar(100)
   candidature                                        Candidature[]
   entretien_entretien_utilisateurrh_idToutilisateur  Entretien[]          @relation("entretien_utilisateurrh_idToutilisateur")
   entretien_entretien_utilisateursup_idToutilisateur Entretien[]          @relation("entretien_utilisateursup_idToutilisateur")
   evaluation                                         Evaluation[]
+  favori                                             favori[]
+  historique_statut                                  historique_statut[]
   notification                                       notification[]
   offre                                              Offre[]
   departement                                        Departement?         @relation(fields: [dep_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_utilisat_reference_departem")
@@ -55,6 +62,7 @@ model Offre {
   supprime          Boolean?
   statut            String?       @default("BROUILLON") @db.VarChar(50)
   candidatures      Candidature[]
+  favori            favori[]
   departement       Departement   @relation(fields: [dep_id], references: [id], onUpdate: Restrict, map: "fk_offre_reference_departem")
   utilisateur       Utilisateur   @relation(fields: [utilisateurrh_id], references: [id], onUpdate: Restrict, map: "fk_offre_reference_utilisat")
 
@@ -62,18 +70,19 @@ model Offre {
 }
 
 model Candidature {
-  id                 Int         @id(map: "pk_candidature") @default(autoincrement())
+  id                 Int                 @id(map: "pk_candidature") @default(autoincrement())
   score              Int?
-  date_soumission    DateTime    @db.Date
-  statut             String      @db.VarChar(50)
+  date_soumission    DateTime            @db.Date
+  statut             String              @db.VarChar(50)
   id_offre           Int
   utilisateurcand_id Int
   supprime           Boolean?
-  utilisateur        Utilisateur @relation(fields: [utilisateurcand_id], references: [id], onUpdate: Restrict, map: "fk_candidat_reference_utilisat")
-  offre              Offre       @relation(fields: [id_offre], references: [id], onUpdate: Restrict, map: "fk_candidature_offre")
+  utilisateur        Utilisateur         @relation(fields: [utilisateurcand_id], references: [id], onUpdate: Restrict, map: "fk_candidat_reference_utilisat")
+  offre              Offre               @relation(fields: [id_offre], references: [id], onUpdate: Restrict, map: "fk_candidature_offre")
   emploi             Emploi[]
   entretiens         Entretien[]
   fichier            fichier[]
+  historique_statut  historique_statut[]
 
   @@map("candidature")
 }
@@ -184,4 +193,26 @@ model utilisateur_profil {
   utilisateur    Utilisateur @relation(fields: [id_utilisateur], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_up_utilisateur")
 
   @@id([id_utilisateur, id_profil])
+}
+
+model historique_statut {
+  id              Int          @id @default(autoincrement())
+  id_candidature  Int
+  ancien_statut   String?      @db.VarChar(50)
+  nouveau_statut  String       @db.VarChar(50)
+  date_changement DateTime     @default(now()) @db.Timestamp(6)
+  id_auteur       Int?
+  utilisateur     Utilisateur? @relation(fields: [id_auteur], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  candidature     Candidature  @relation(fields: [id_candidature], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model favori {
+  id             Int         @id @default(autoincrement())
+  id_utilisateur Int
+  id_offre       Int
+  date_ajout     DateTime    @default(now()) @db.Timestamp(6)
+  offre          Offre       @relation(fields: [id_offre], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  utilisateur    Utilisateur @relation(fields: [id_utilisateur], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id_utilisateur, id_offre])
 }

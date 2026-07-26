@@ -98,7 +98,7 @@ router.get('/me', requireAuth, (req, res) => {
 // Mise à jour du profil
 router.put('/profile', requireAuth, async (req, res) => {
   try {
-    const { nom, password, prenom, telephone, quartier } = req.body;
+    const { nom, password, prenom, telephone, quartier, sexe, ville, annees_experience, niveau_etude, domaine_etudes } = req.body;
     const userId = parseInt(req.user.id);
 
     const data = {};
@@ -106,6 +106,11 @@ router.put('/profile', requireAuth, async (req, res) => {
     if (prenom !== undefined) data.prenom = prenom?.trim() || '';
     if (telephone !== undefined) data.telephone = telephone?.trim() || '';
     if (quartier !== undefined) data.quartier = quartier?.trim() || '';
+    if (sexe !== undefined) data.sexe = sexe?.trim() || null;
+    if (ville !== undefined) data.ville = ville?.trim() || null;
+    if (annees_experience !== undefined) data.annees_experience = annees_experience === null || annees_experience === '' ? null : parseInt(annees_experience);
+    if (niveau_etude !== undefined) data.niveau_etude = niveau_etude?.trim() || null;
+    if (domaine_etudes !== undefined) data.domaine_etudes = domaine_etudes?.trim() || null;
     if (password) {
       if (password.length < 6) {
         return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });

@@ -47,9 +47,19 @@ router.post('/', requireAuth, requirePermission('postuler'), async (req, res) =>
       },
     });
 
+    // Trace la création dans l'historique (ancien_statut = null = première étape)
+    await prisma.historique_statut.create({
+      data: {
+        id_candidature: candidature.id,
+        ancien_statut: null,
+        nouveau_statut: 'EN_ATTENTE',
+        id_auteur: parseInt(req.user.id),
+      },
+    });
+
     // Notifier tous les RH de la nouvelle candidature
     const rhUsers = await prisma.utilisateur.findMany({
-      where: { role: 'RH', supprime: false },
+      where: { type: 'RH', supprime: false },
     });
 
     for (const rh of rhUsers) {
@@ -137,6 +147,35 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/candidatures/:id/historique — Historique des changements de statut (RH ou le candidat concerné)
+router.get('/:id/historique', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    const candidature = await prisma.candidature.findUnique({ where: { id } });
+    if (!candidature) {
+      return res.status(404).json({ error: 'Candidature non trouvée' });
+    }
+
+    const isOwner = candidature.utilisateurcand_id === parseInt(req.user.id);
+    const isRhOrAdmin = ['RH', 'ADMIN'].includes(req.user.role);
+
+    if (!isOwner && !isRhOrAdmin) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+
+    const historique = await prisma.historique_statut.findMany({
+      where: { id_candidature: id },
+      orderBy: { date_changement: 'asc' },
+    });
+
+    res.json(historique);
+  } catch (error) {
+    console.error('Get historique error:', error);
+    res.status(500).json({ error: "Erreur lors du chargement de l'historique" });
+  }
+});
+
 // PUT /api/candidatures/:id/statut — Changer le statut (RH uniquement)
 router.put('/:id/statut', requireAuth, requirePermission('changer_statut_candidature'), async (req, res) => {
   try {
@@ -147,6 +186,12 @@ router.put('/:id/statut', requireAuth, requirePermission('changer_statut_candida
     if (!valeursAutorisees.includes(statut)) {
       return res.status(400).json({ error: 'Statut invalide. Valeurs : EN_ATTENTE, ACCEPTEE, REJETEE' });
     }
+
+    const existante = await prisma.candidature.findUnique({ where: { id } });
+    if (!existante) {
+      return res.status(404).json({ error: 'Candidature non trouvée' });
+    }
+    const ancienStatut = existante.statut;
 
     const data = { statut };
     if (score !== undefined) data.score = parseInt(score);
@@ -159,6 +204,18 @@ router.put('/:id/statut', requireAuth, requirePermission('changer_statut_candida
         offre: { select: { id: true, titre: true } },
       },
     });
+
+    // Trace la transition dans l'historique, seulement si le statut a réellement changé
+    if (ancienStatut !== statut) {
+      await prisma.historique_statut.create({
+        data: {
+          id_candidature: id,
+          ancien_statut: ancienStatut,
+          nouveau_statut: statut,
+          id_auteur: parseInt(req.user.id),
+        },
+      });
+    }
 
     let titreNotif;
     let contenuNotif;

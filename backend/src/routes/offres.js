@@ -157,7 +157,7 @@ router.put('/:id/statut', requireAuth, requirePermission('publier_offre'), async
     // Notifier tous les candidats quand une offre est publiée
     if (statut === 'PUBLIEE') {
       const candidats = await prisma.utilisateur.findMany({
-        where: { role: 'Candidat', supprime: false },
+        where: { type: 'Candidat', supprime: false },
       });
 
       for (const candidat of candidats) {

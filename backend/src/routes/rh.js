@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 // Statistiques du tableau de bord RH
-router.get('/stats', requirePermission('voir_statistique'), async (_req, res) => {
+router.get('/stats', requireRole('RH', 'ADMIN', 'SUPERVISEUR'), async (_req, res) => {
   try {
     const [offresCount, candidaturesCount, enAttenteCount, candidatsCount] = await Promise.all([
       prisma.offre.count(),
