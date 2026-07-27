@@ -60,9 +60,19 @@ function sanitizeUser(user, role) {
   return {
     id: String(user.id),
     nom: user.nom,
+    prenom: user.prenom || '',
     email: user.email,
+    telephone: user.telephone || '',
+    quartier: user.quartier || '',
     role: role,
+    type: user.type,
     active: !user.supprime, // actif = non supprimé
+    sexe: user.sexe || null,
+    ville: user.ville || null,
+    annees_experience: user.annees_experience ?? null,
+    niveau_etude: user.niveau_etude || null,
+    domaine_etudes: user.domaine_etudes || null,
+    competences: user.competences || null,
   };
 }
 

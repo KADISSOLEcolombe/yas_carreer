@@ -56,6 +56,45 @@ router.post('/users/rh', requirePermission('creer_compte_rh'), (req, res) => cre
 // Créer un compte Superviseur
 router.post('/users/superviseur', requirePermission('creer_compte_superviseur'), (req, res) => creerCompte(req, res, 'Superviseur', 'SUPERVISEUR'));
 
+// Créer un compte Administrateur
+router.post('/users/admin', requirePermission('gerer_utilisateur'), (req, res) => creerCompte(req, res, 'Administrateur', 'ADMIN'));
+
+// Statistiques globales (utilisateurs par rôle, candidatures par statut, offres par département)
+router.get('/stats', requirePermission('voir_statistique'), async (_req, res) => {
+  try {
+    const [utilisateursParType, candidaturesParStatut, offres, totalUtilisateurs, totalOffres, offresPubliees, totalCandidatures] = await Promise.all([
+      prisma.utilisateur.groupBy({ by: ['type'], where: { supprime: false }, _count: true }),
+      prisma.candidature.groupBy({ by: ['statut'], where: { supprime: false }, _count: true }),
+      prisma.offre.findMany({ where: { supprime: false }, include: { departement: { select: { nom: true } } } }),
+      prisma.utilisateur.count({ where: { supprime: false } }),
+      prisma.offre.count({ where: { supprime: false } }),
+      prisma.offre.count({ where: { supprime: false, statut: 'PUBLIEE' } }),
+      prisma.candidature.count({ where: { supprime: false } }),
+    ]);
+
+    const offresParDepartementMap = new Map();
+    offres.forEach((o) => {
+      const nom = o.departement?.nom || 'Non précisé';
+      offresParDepartementMap.set(nom, (offresParDepartementMap.get(nom) || 0) + 1);
+    });
+
+    res.json({
+      totaux: {
+        utilisateurs: totalUtilisateurs,
+        offres: totalOffres,
+        offresPubliees,
+        candidatures: totalCandidatures,
+      },
+      utilisateursParRole: utilisateursParType.map((u) => ({ role: u.type, count: u._count })),
+      candidaturesParStatut: candidaturesParStatut.map((c) => ({ statut: c.statut, count: c._count })),
+      offresParDepartement: Array.from(offresParDepartementMap.entries()).map(([departement, count]) => ({ departement, count })),
+    });
+  } catch (error) {
+    console.error('Admin stats error:', error);
+    res.status(500).json({ error: 'Erreur lors du chargement des statistiques' });
+  }
+});
+
 // Lister tous les utilisateurs
 router.get('/users', requirePermission('gerer_utilisateur'), async (_req, res) => {
   try {
