@@ -28,6 +28,21 @@ router.get('/stats', requireRole('RH', 'ADMIN', 'SUPERVISEUR'), async (_req, res
   }
 });
 
+// Liste des superviseurs (pour assigner une affectation)
+router.get('/superviseurs', requireRole('RH', 'ADMIN'), async (_req, res) => {
+  try {
+    const superviseurs = await prisma.utilisateur.findMany({
+      where: { type: 'Superviseur', supprime: false },
+      select: { id: true, nom: true, prenom: true, email: true },
+      orderBy: { nom: 'asc' },
+    });
+    res.json(superviseurs);
+  } catch (error) {
+    console.error('Get superviseurs error:', error);
+    res.status(500).json({ error: 'Erreur lors du chargement des superviseurs' });
+  }
+});
+
 // Toutes les candidatures avec le candidat et l'offre
 router.get('/candidatures', requirePermission('consulter_candidature'), async (_req, res) => {
   try {

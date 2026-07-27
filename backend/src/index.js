@@ -13,6 +13,7 @@ const notificationsRoutes = require('./routes/notifications');
 const filesRoutes = require('./routes/files');
 const favorisRoutes = require('./routes/favoris');
 const departementsRoutes = require('./routes/departements');
+const emploisRoutes = require('./routes/emplois');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -37,6 +38,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/favoris', favorisRoutes);
 app.use('/api/departements', departementsRoutes);
+app.use('/api/emplois', emploisRoutes);
 app.listen(PORT, () => {
   console.log(`API YAS Career démarrée sur http://localhost:${PORT}`);
 });

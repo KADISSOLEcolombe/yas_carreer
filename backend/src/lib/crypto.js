@@ -72,6 +72,7 @@ function sanitizeUser(user, role) {
     annees_experience: user.annees_experience ?? null,
     niveau_etude: user.niveau_etude || null,
     domaine_etudes: user.domaine_etudes || null,
+    competences: user.competences || null,
   };
 }
 

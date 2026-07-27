@@ -81,7 +81,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/offres — Créer une offre (RH uniquement)
 router.post('/', requireAuth, requirePermission('creer_offre'), async (req, res) => {
   try {
-    const { titre, type, exigence, localisation, date_limite, id_departement, exigences_fichier } = req.body;
+    const { titre, type, exigence, localisation, date_limite, id_departement, exigences_fichier, competences } = req.body;
 
     if (!titre?.trim()) {
       return res.status(400).json({ error: 'Le titre est requis' });
@@ -99,6 +99,7 @@ router.post('/', requireAuth, requirePermission('creer_offre'), async (req, res)
         date_limite: date_limite ? new Date(date_limite) : new Date(),
         date_publication: new Date(),
         exigences_fichier: exigences_fichier?.trim() || 'CV',
+        competences: competences?.trim() || null,
         statut: 'BROUILLON',
         utilisateurrh_id: parseInt(req.user.id),
         dep_id: parseInt(id_departement),
@@ -117,7 +118,7 @@ router.post('/', requireAuth, requirePermission('creer_offre'), async (req, res)
 router.put('/:id', requireAuth, requirePermission('modifier_offre'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { titre, type, exigence, localisation, date_limite, id_departement, exigences_fichier } = req.body;
+    const { titre, type, exigence, localisation, date_limite, id_departement, exigences_fichier, competences } = req.body;
 
     const existing = await prisma.offre.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Offre non trouvée' });
@@ -129,6 +130,7 @@ router.put('/:id', requireAuth, requirePermission('modifier_offre'), async (req,
     if (localisation !== undefined) data.localisation = localisation?.trim() || '';
     if (date_limite !== undefined) data.date_limite = date_limite ? new Date(date_limite) : new Date();
     if (exigences_fichier !== undefined) data.exigences_fichier = exigences_fichier?.trim() || 'CV';
+    if (competences !== undefined) data.competences = competences?.trim() || null;
     if (id_departement !== undefined) data.dep_id = parseInt(id_departement);
 
     const offre = await prisma.offre.update({ where: { id }, data });

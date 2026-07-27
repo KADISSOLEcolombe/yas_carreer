@@ -22,11 +22,14 @@ model Utilisateur {
   annees_experience                                  Int?
   niveau_etude                                       String?              @db.VarChar(50)
   domaine_etudes                                     String?              @db.VarChar(100)
+  competences                                        String?
   candidature                                        Candidature[]
+  emploi                                             Emploi[]
   entretien_entretien_utilisateurrh_idToutilisateur  Entretien[]          @relation("entretien_utilisateurrh_idToutilisateur")
   entretien_entretien_utilisateursup_idToutilisateur Entretien[]          @relation("entretien_utilisateursup_idToutilisateur")
   evaluation                                         Evaluation[]
   favori                                             favori[]
+  fichier                                            fichier[]
   historique_statut                                  historique_statut[]
   notification                                       notification[]
   offre                                              Offre[]
@@ -61,6 +64,7 @@ model Offre {
   exigences_fichier String        @db.VarChar(1000)
   supprime          Boolean?
   statut            String?       @default("BROUILLON") @db.VarChar(50)
+  competences       String?
   candidatures      Candidature[]
   favori            favori[]
   departement       Departement   @relation(fields: [dep_id], references: [id], onUpdate: Restrict, map: "fk_offre_reference_departem")
@@ -108,18 +112,20 @@ model Entretien {
 }
 
 model Emploi {
-  id             Int          @id(map: "pk_emploi") @default(autoincrement())
-  date_debut     DateTime     @db.Date
-  date_fin       DateTime     @db.Date
-  sujet          String       @db.VarChar(200)
-  lieu           String       @db.VarChar(100)
-  statut         String       @db.VarChar(50)
-  id_departement Int
-  can_id         Int
-  supprime       Boolean?
-  departement    Departement  @relation(fields: [id_departement], references: [id], onUpdate: Restrict, map: "fk_emploi_departement")
-  candidature    Candidature  @relation(fields: [can_id], references: [id], onUpdate: Restrict, map: "fk_emploi_reference_candidat")
-  evaluations    Evaluation[]
+  id                Int          @id(map: "pk_emploi") @default(autoincrement())
+  date_debut        DateTime     @db.Date
+  date_fin          DateTime     @db.Date
+  sujet             String       @db.VarChar(200)
+  lieu              String       @db.VarChar(100)
+  statut            String       @db.VarChar(50)
+  id_departement    Int
+  can_id            Int
+  supprime          Boolean?
+  utilisateursup_id Int?
+  utilisateur       Utilisateur? @relation(fields: [utilisateursup_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departement       Departement  @relation(fields: [id_departement], references: [id], onUpdate: Restrict, map: "fk_emploi_departement")
+  candidature       Candidature  @relation(fields: [can_id], references: [id], onUpdate: Restrict, map: "fk_emploi_reference_candidat")
+  evaluations       Evaluation[]
 
   @@map("emploi")
 }
@@ -127,7 +133,7 @@ model Emploi {
 model Evaluation {
   id                Int         @id(map: "pk_evaluation") @default(autoincrement())
   note              Int?
-  fichier_rapport   String      @db.VarChar(255)
+  fichier_rapport   String      @db.VarChar(2000)
   id_emploi         Int
   utilisateursup_id Int
   statut            Boolean
@@ -148,13 +154,15 @@ model droit {
 }
 
 model fichier {
-  id             Int         @id(map: "pk_fichier") @default(autoincrement())
-  libelle        String      @db.VarChar(50)
-  chemin         String      @db.VarChar(500)
-  extension      String      @db.VarChar(5)
-  id_candidature Int
+  id             Int          @id(map: "pk_fichier") @default(autoincrement())
+  libelle        String       @db.VarChar(50)
+  chemin         String       @db.VarChar(500)
+  extension      String       @db.VarChar(5)
+  id_candidature Int?
   supprime       Boolean?
-  candidature    Candidature @relation(fields: [id_candidature], references: [id], onUpdate: Restrict, map: "fk_fichier_reference_candidat")
+  id_utilisateur Int?
+  utilisateur    Utilisateur? @relation(fields: [id_utilisateur], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  candidature    Candidature? @relation(fields: [id_candidature], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_fichier_reference_candidat")
 }
 
 model profil {

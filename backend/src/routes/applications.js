@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../lib/prisma');
 const { requireAuth, requireRole, requirePermission } = require('../middleware/auth');
 const { creerNotification } = require('./notifications');
+const { calculerScore } = require('../lib/matching');
 
 const router = express.Router();
 
@@ -32,12 +33,20 @@ router.post('/', requireAuth, requirePermission('postuler'), async (req, res) =>
       return res.status(400).json({ error: 'Vous avez déjà postulé à cette offre' });
     }
 
+    const score = calculerScore({
+      competencesCandidat: req.user.competences,
+      competencesOffre: offre.competences,
+      villeCandidat: req.user.ville,
+      localisationOffre: offre.localisation,
+    });
+
     const candidature = await prisma.candidature.create({
       data: {
         id_offre: parseInt(id_offre),
         utilisateurcand_id: parseInt(req.user.id),
         statut: 'EN_ATTENTE',
         date_soumission: new Date(),
+        score,
         supprime: false,
       },
       include: {
@@ -182,9 +191,9 @@ router.put('/:id/statut', requireAuth, requirePermission('changer_statut_candida
     const id = parseInt(req.params.id);
     const { statut, score } = req.body;
 
-    const valeursAutorisees = ['EN_ATTENTE', 'ACCEPTEE', 'REJETEE'];
+    const valeursAutorisees = ['EN_ATTENTE', 'EN_EXAMEN', 'ENTRETIEN', 'ACCEPTEE', 'REJETEE'];
     if (!valeursAutorisees.includes(statut)) {
-      return res.status(400).json({ error: 'Statut invalide. Valeurs : EN_ATTENTE, ACCEPTEE, REJETEE' });
+      return res.status(400).json({ error: 'Statut invalide. Valeurs : EN_ATTENTE, EN_EXAMEN, ENTRETIEN, ACCEPTEE, REJETEE' });
     }
 
     const existante = await prisma.candidature.findUnique({ where: { id } });
@@ -225,6 +234,12 @@ router.put('/:id/statut', requireAuth, requirePermission('changer_statut_candida
     } else if (statut === 'REJETEE') {
       titreNotif = 'Candidature non retenue';
       contenuNotif = `Nous vous informons que votre candidature pour l'offre "${candidature.offre.titre}" n'a pas été retenue cette fois-ci. Nous vous remercions pour votre intérêt et vous encourageons à postuler à d'autres offres.`;
+    } else if (statut === 'EN_EXAMEN') {
+      titreNotif = 'Candidature en cours d\'examen 🔍';
+      contenuNotif = `Votre candidature pour l'offre "${candidature.offre.titre}" est en cours d'examen par notre équipe.`;
+    } else if (statut === 'ENTRETIEN') {
+      titreNotif = 'Entretien planifié 📅';
+      contenuNotif = `Votre candidature pour l'offre "${candidature.offre.titre}" est passée à l'étape entretien.`;
     } else {
       titreNotif = 'Mise à jour de votre candidature';
       contenuNotif = `Le statut de votre candidature pour l'offre "${candidature.offre.titre}" a été mis à jour.`;
