@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { api, mapOffre, type Job } from '../../lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Search, MapPin, Filter, Briefcase, ArrowLeft, Users, LogOut } from 'lucide-react';
+import { Search, MapPin, Filter, Briefcase, ArrowLeft, Users, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import JobOfferCard from '../../components/JobOfferCard';
 
 const COLORS = {
@@ -169,6 +169,8 @@ export default function OffersPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 9;
 
   const loadJobs = async () => {
     setIsLoading(true);
@@ -202,6 +204,18 @@ export default function OffersPage() {
     filterType !== 'Tous',
     filterDepartment !== 'Tous',
   ].filter(Boolean).length;
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredJobs.length / ITEMS_PER_PAGE));
+  const paginatedJobs = filteredJobs.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset page quand les filtres changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterType, filterDepartment]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -303,9 +317,9 @@ export default function OffersPage() {
                 Réessayer
               </button>
             </div>
-          ) : filteredJobs.length > 0 ? (
+          ) : paginatedJobs.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredJobs.map((job) => (
+              {paginatedJobs.map((job) => (
                 <JobOfferCard key={job.id} job={job} />
               ))}
             </div>
@@ -316,6 +330,39 @@ export default function OffersPage() {
               <p className="text-gray-600 max-w-md mx-auto">
                 {jobs.length === 0 ? 'Aucune offre n\'est disponible pour le moment.' : 'Essayez de modifier vos critères de recherche pour trouver des opportunités correspondantes.'}
               </p>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-4 py-2 text-sm rounded-md font-medium transition-colors ${
+                    currentPage === page
+                      ? 'bg-blue-600 text-white'
+                      : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
+              </button>
             </div>
           )}
         </div>

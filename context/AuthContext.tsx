@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (nom: string, email: string, password: string, prenom?: string, telephone?: string, quartier?: string) => Promise<void>;
   logout: () => void;
+  updateUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
   isLoading: boolean;
   droits: string[];
@@ -69,17 +70,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Redirection selon le rôle
       switch (response.user.role) {
-        case 'Candidat':
-          router.push('/candidat');
+        case 'CANDIDAT':
+          router.push('/profil');
           break;
         case 'RH':
-          router.push('/rh');
+          router.push('/rh/dashboard');
           break;
-        case 'Superviseur':
-          router.push('/superviseur');
+        case 'SUPERVISEUR':
+          router.push('/superviseur/dashboard');
           break;
         case 'ADMIN':
-          router.push('/admin');
+          router.push('/admin/dashboard');
           break;
         default:
           router.push('/');
@@ -99,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await api.register(nom, email, password, prenom, telephone, quartier);
       persistSession(response.user);
-      router.push('/candidat');
+      router.push('/profil');
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
@@ -115,6 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    if (!user) return;
+    persistSession({ ...user, ...updates });
+  };
+
   const hasPermission = (permission: string): boolean => {
     return droits.includes(permission);
   };
@@ -126,13 +132,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         logout,
+        updateUser,
         isAuthenticated: !!user,
         isLoading,
         droits,
         hasPermission,
         isRecruiter: user?.role === 'RH' || user?.role === 'ADMIN',
-        isSupervisor: user?.role === 'Superviseur',
-        isCandidate: user?.role === 'Candidat',
+        isSupervisor: user?.role === 'SUPERVISEUR',
+        isCandidate: user?.role === 'CANDIDAT',
         isAdmin: user?.role === 'ADMIN',
       }}
     >

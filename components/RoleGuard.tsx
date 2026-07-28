@@ -2,7 +2,8 @@
 
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, type UserRole } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import { type UserRole } from '../lib/api';
 import { COLORS } from '../lib/constants';
 
 interface RoleGuardProps {
@@ -22,9 +23,9 @@ export default function RoleGuard({ allowedRoles, redirectTo, children }: RoleGu
       return;
     }
     if (user && !allowedRoles.includes(user.role)) {
-      if (user.role === 'RECRUITER' || user.role === 'ADMIN') {
+      if (user.role === 'RH' || user.role === 'ADMIN') {
         router.push('/rh/dashboard');
-      } else if (user.role === 'SUPERVISOR') {
+      } else if (user.role === 'SUPERVISEUR') {
         router.push('/superviseur/dashboard');
       } else {
         router.push('/profil');

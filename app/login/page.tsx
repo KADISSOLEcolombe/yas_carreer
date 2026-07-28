@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Lock, Mail } from 'lucide-react';
 
@@ -22,17 +22,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, isAuthenticated } = useAuth();
-  const router = useRouter();
+  const { login } = useAuth();
   const searchParams = useSearchParams();
   const message = searchParams.get('message');
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      // La redirection est gérée par la fonction login selon le rôle
-      router.push('/');
-    }
-  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

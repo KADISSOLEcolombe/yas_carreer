@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Menu, AlertCircle, CheckCircle, XCircle, Calendar, Briefcase, ChevronLeft, ChevronRight, Heart, Pencil, Download, ArrowRight, Edit2, X as XIcon, Check, MapPin, Phone, Mail, FileText, User as UserIcon } from 'lucide-react';
+import { Search, Menu, AlertCircle, CheckCircle, XCircle, Calendar, Briefcase, ChevronLeft, ChevronRight, Heart, Pencil, Download, ArrowRight, Edit2, X as XIcon, Check, MapPin, Phone, Mail, FileText, User as UserIcon, Trash2 } from 'lucide-react';
 import CandidateSidebar, { type CandidateTab } from '../../components/CandidateSidebar';
+import JobOfferCard from '../../components/JobOfferCard';
+import { api, mapOffre, type Job } from '../../lib/api';
+import { useFavoris } from '../../context/FavorisContext';
 
 const COLORS = {
   midnight: '#1e3a8a',
@@ -15,6 +18,22 @@ const COLORS = {
 
 type CandidatureStatus = 'ENTRETIEN' | 'EN_COURS' | 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE';
 type ContractType = 'CDI' | 'CDD' | 'Stage';
+
+// Convertit le statut réel de la candidature (backend) vers celui affiché par la frise/le badge
+function mapStatutFrise(statutBackend: string): CandidatureStatus {
+  switch (statutBackend) {
+    case 'EN_EXAMEN':
+      return 'EN_COURS';
+    case 'ENTRETIEN':
+      return 'ENTRETIEN';
+    case 'ACCEPTEE':
+      return 'ACCEPTEE';
+    case 'REJETEE':
+      return 'REFUSEE';
+    default:
+      return 'EN_ATTENTE';
+  }
+}
 
 const STATUS_STYLES: Record<CandidatureStatus, { bg: string; text: string; label: string; icon: typeof Calendar }> = {
   ENTRETIEN: { bg: '#EDE9FE', text: '#6D28D9', label: 'Entretien planifié', icon: Calendar },
@@ -30,81 +49,20 @@ const TYPE_BADGE: Record<ContractType, { bg: string; text: string }> = {
   Stage: { bg: '#5F99D2', text: '#FFFFFF' },
 };
 
-// Données d'exemple en dur — à remplacer par un appel API plus tard
-const MOCK_CANDIDATURES: { id: number; poste: string; date: string; status: CandidatureStatus; type: ContractType }[] = [
-  { id: 1, poste: 'Développeur Full Stack', date: '14/01/2025', status: 'ENTRETIEN', type: 'CDI' },
-  { id: 2, poste: 'Stage – Analyste Business', date: '12/01/2025', status: 'EN_COURS', type: 'Stage' },
-  { id: 3, poste: 'Chargé(e) de Communication', date: '13/01/2025', status: 'EN_ATTENTE', type: 'CDI' },
-];
-
-type EntretienType = 'Présentiel' | 'Visio';
-
-const ENTRETIEN_TYPE_STYLES: Record<EntretienType, { bg: string; text: string }> = {
-  Présentiel: { bg: '#D1FAE5', text: '#065F46' },
-  Visio: { bg: '#DBEAFE', text: '#1E40AF' },
-};
-
-const MOCK_ENTRETIENS: { id: number; poste: string; date: string; heure: string; avec: string; type: EntretienType }[] = [
-  { id: 1, poste: 'Développeur Full Stack', date: '21/01/2025', heure: '10:00', avec: 'Marie Dupont', type: 'Présentiel' },
-  { id: 2, poste: 'Stage – Analyste Business', date: '22/01/2025', heure: '14:30', avec: 'Jean Agbo', type: 'Visio' },
-];
-
-const MOCK_NOTIFICATIONS = [
-  {
-    id: 1,
-    titre: 'Entretien planifié',
-    message: 'Un entretien a été planifié pour votre candidature « Développeur Full Stack ».',
-    date: '15/01/2025',
-  },
-  {
-    id: 2,
-    titre: 'Candidature reçue',
-    message: 'Votre candidature pour « Chargé(e) de Communication » a bien été reçue.',
-    date: '13/01/2025',
-  },
-];
-
 // TODO : à remplacer par les vraies données quand le backend sera connecté
 const DONNEES_PROVISOIRES = {
-  pourcentageCorrespondance: [85, 92, 78], // Pour les offres recommandées
   pourcentageProfilComplété: 75,
   photoProfil: null, // null = utiliser l'avatar par défaut
-  nomsEntreprises: ['YAS Togo', 'Digital Solutions', 'Tech Africa'],
-  offresRecommandées: [
-    {
-      id: 1,
-      titre: 'Développeur Frontend',
-      entreprise: 'YAS Togo',
-      tags: ['React', 'TypeScript', 'Remote'],
-      date: 'Il y a 2 jours',
-      correspondance: 85,
-    },
-    {
-      id: 2,
-      titre: 'UX Designer Senior',
-      entreprise: 'Digital Solutions',
-      tags: ['Figma', 'Design System', 'Mobile'],
-      date: 'Il y a 3 jours',
-      correspondance: 92,
-    },
-    {
-      id: 3,
-      titre: 'Product Manager',
-      entreprise: 'Tech Africa',
-      tags: ['Agile', 'Scrum', 'Strategy'],
-      date: 'Il y a 5 jours',
-      correspondance: 78,
-    },
-  ],
   // Champs manquants en base pour le profil
-  sexe: 'Masculin', // TODO : champ absent en base
-  ville: 'Lomé', // TODO : champ absent en base (il y a "quartier" mais pas "ville")
-  anneesExperience: 5, // TODO : champ absent en base
-  niveauEtude: 'Bac+5', // TODO : champ absent en base
-  domaineEtudes: 'Informatique', // TODO : champ absent en base
   photo: null, // TODO : champ absent en base
-  cvFile: 'Curriculum_Vitae.pdf', // TODO : champ absent en base
 };
+
+function ilYA(dateStr: string): string {
+  const jours = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24)));
+  if (jours === 0) return "Aujourd'hui";
+  if (jours === 1) return 'Il y a 1 jour';
+  return `Il y a ${jours} jours`;
+}
 
 function StatusBadge({ status }: { status: CandidatureStatus }) {
   const style = STATUS_STYLES[status];
@@ -120,8 +78,13 @@ function StatusBadge({ status }: { status: CandidatureStatus }) {
   );
 }
 
-function EntretienTypeBadge({ type }: { type: EntretienType }) {
-  const style = ENTRETIEN_TYPE_STYLES[type];
+const ENTRETIEN_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
+  presentiel: { bg: '#D1FAE5', text: '#065F46' },
+  visio: { bg: '#DBEAFE', text: '#1E40AF' },
+};
+
+function EntretienTypeBadge({ type }: { type: string }) {
+  const style = ENTRETIEN_TYPE_STYLES[type] || { bg: '#E2E8F0', text: '#4B5563' };
   return (
     <span
       className="inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
@@ -155,6 +118,7 @@ function ProgressionFrise({ status }: { status: CandidatureStatus }) {
 
   let etapeCourante = 0;
   if (status === 'EN_ATTENTE') etapeCourante = 1;
+  else if (status === 'EN_COURS') etapeCourante = 1;
   else if (status === 'ENTRETIEN') etapeCourante = 2;
   else if (status === 'ACCEPTEE') etapeCourante = 3;
   else if (status === 'REFUSEE') etapeCourante = -1; // Refusée
@@ -262,25 +226,56 @@ function CandidatureRow({
 }
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, isLoading, isRecruiter } = useAuth();
+  const { user, isAuthenticated, isLoading, isRecruiter, updateUser } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<CandidateTab>('apercu');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [candidatures, setCandidatures] = useState<any[]>([]);
+  const [entretiens, setEntretiens] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [offresRecommandees, setOffresRecommandees] = useState<Job[]>([]);
+  const [mesFavorisJobs, setMesFavorisJobs] = useState<Job[]>([]);
+  const { isFavori, toggleFavori, favorisIds } = useFavoris();
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [mesDocuments, setMesDocuments] = useState<{ id: number; libelle: string; chemin: string; extension: string }[]>([]);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileFormData, setProfileFormData] = useState({
     nom: user?.nom || '',
     prenom: user?.prenom || '',
     email: user?.email || '',
     telephone: user?.telephone || '',
     quartier: user?.quartier || '',
-    sexe: DONNEES_PROVISOIRES.sexe,
-    ville: DONNEES_PROVISOIRES.ville,
-    anneesExperience: DONNEES_PROVISOIRES.anneesExperience,
-    niveauEtude: DONNEES_PROVISOIRES.niveauEtude,
-    domaineEtudes: DONNEES_PROVISOIRES.domaineEtudes,
+    sexe: user?.sexe || '',
+    ville: user?.ville || '',
+    anneesExperience: user?.annees_experience ?? 0,
+    niveauEtude: user?.niveau_etude || '',
+    domaineEtudes: user?.domaine_etudes || '',
+    competences: user?.competences || '',
   });
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Resynchronise le formulaire dès que les vraies données du profil sont chargées/modifiées
+  useEffect(() => {
+    if (!user) return;
+    setProfileFormData({
+      nom: user.nom || '',
+      prenom: user.prenom || '',
+      email: user.email || '',
+      telephone: user.telephone || '',
+      quartier: user.quartier || '',
+      sexe: user.sexe || '',
+      ville: user.ville || '',
+      anneesExperience: user.annees_experience ?? 0,
+      niveauEtude: user.niveau_etude || '',
+      domaineEtudes: user.domaine_etudes || '',
+      competences: user.competences || '',
+    });
+  }, [user]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -290,6 +285,75 @@ export default function ProfilePage() {
       router.push('/rh/dashboard');
     }
   }, [isAuthenticated, isLoading, isRecruiter, router]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!isAuthenticated) return;
+      
+      setIsDataLoading(true);
+      try {
+        // Charger les candidatures
+        const candidaturesData = await api.getMyApplications();
+        setCandidatures(candidaturesData);
+
+        // Charger des offres réelles à recommander (celles auxquelles le candidat n'a pas encore postulé)
+        try {
+          const offresData = await api.getOffres();
+          const idsDejaPostules = new Set(candidaturesData.map((c: any) => c.id_offre));
+          const offresDisponibles = offresData
+            .filter((o) => !idsDejaPostules.has(o.id))
+            .map(mapOffre);
+          setOffresRecommandees(offresDisponibles);
+        } catch (err) {
+          console.error('Erreur chargement offres recommandées:', err);
+          setOffresRecommandees([]);
+        }
+
+
+        // Charger les entretiens
+        try {
+          const entretiensData = await api.getEntretiens();
+          setEntretiens(entretiensData);
+        } catch (err) {
+          console.error('Erreur chargement entretiens:', err);
+          setEntretiens([]);
+        }
+
+        // Charger mes favoris
+        try {
+          const favorisData = await api.getFavoris();
+          setMesFavorisJobs(favorisData.map((f) => mapOffre(f.offre)));
+        } catch (err) {
+          console.error('Erreur chargement favoris:', err);
+          setMesFavorisJobs([]);
+        }
+
+        // Charger mes documents de profil
+        try {
+          const documentsData = await api.getMyFiles();
+          setMesDocuments(documentsData);
+        } catch (err) {
+          console.error('Erreur chargement documents:', err);
+          setMesDocuments([]);
+        }
+        
+        // Charger les notifications
+        try {
+          const notificationsData = await api.getNotifications();
+          setNotifications(notificationsData);
+        } catch (err) {
+          console.error('Erreur chargement notifications:', err);
+          setNotifications([]);
+        }
+      } catch (err) {
+        console.error('Erreur chargement données:', err);
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+
+    loadData();
+  }, [isAuthenticated]);
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -305,12 +369,19 @@ export default function ProfilePage() {
   const initial = user?.nom?.charAt(0).toUpperCase() || 'C';
   const prenom = user?.nom?.split(' ')[0] || 'Candidat';
 
+  const RECOS_PAR_PAGE = 3;
+  const totalPagesRecos = Math.max(1, Math.ceil(offresRecommandees.length / RECOS_PAR_PAGE));
+  const offresRecommandeesVisibles = offresRecommandees.slice(
+    carouselIndex * RECOS_PAR_PAGE,
+    carouselIndex * RECOS_PAR_PAGE + RECOS_PAR_PAGE
+  );
+
   const handleCarouselPrev = () => {
-    setCarouselIndex((prev) => (prev === 0 ? DONNEES_PROVISOIRES.offresRecommandées.length - 1 : prev - 1));
+    setCarouselIndex((prev) => (prev === 0 ? totalPagesRecos - 1 : prev - 1));
   };
 
   const handleCarouselNext = () => {
-    setCarouselIndex((prev) => (prev === DONNEES_PROVISOIRES.offresRecommandées.length - 1 ? 0 : prev + 1));
+    setCarouselIndex((prev) => (prev === totalPagesRecos - 1 ? 0 : prev + 1));
   };
 
   const validateProfileForm = () => {
@@ -325,10 +396,30 @@ export default function ProfilePage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!validateProfileForm()) return;
-    // TODO : Appel API pour sauvegarder les modifications
-    setIsEditingProfile(false);
+
+    setIsSavingProfile(true);
+    try {
+      const response = await api.updateProfile({
+        nom: profileFormData.nom,
+        prenom: profileFormData.prenom,
+        telephone: profileFormData.telephone,
+        quartier: profileFormData.quartier,
+        sexe: profileFormData.sexe,
+        ville: profileFormData.ville,
+        annees_experience: profileFormData.anneesExperience,
+        niveau_etude: profileFormData.niveauEtude,
+        domaine_etudes: profileFormData.domaineEtudes,
+        competences: profileFormData.competences,
+      });
+      updateUser(response.user);
+      setIsEditingProfile(false);
+    } catch (err: any) {
+      setProfileErrors({ general: err.message || 'Erreur lors de la sauvegarde du profil' });
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const handleCancelProfile = () => {
@@ -338,14 +429,43 @@ export default function ProfilePage() {
       email: user?.email || '',
       telephone: user?.telephone || '',
       quartier: user?.quartier || '',
-      sexe: DONNEES_PROVISOIRES.sexe,
-      ville: DONNEES_PROVISOIRES.ville,
-      anneesExperience: DONNEES_PROVISOIRES.anneesExperience,
-      niveauEtude: DONNEES_PROVISOIRES.niveauEtude,
-      domaineEtudes: DONNEES_PROVISOIRES.domaineEtudes,
+      sexe: user?.sexe || '',
+      ville: user?.ville || '',
+      anneesExperience: user?.annees_experience ?? 0,
+      niveauEtude: user?.niveau_etude || '',
+      domaineEtudes: user?.domaine_etudes || '',
+      competences: user?.competences || '',
     });
     setProfileErrors({});
     setIsEditingProfile(false);
+  };
+
+  const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    setDocError(null);
+    setIsUploadingDoc(true);
+    try {
+      await api.uploadFile(file, undefined, file.name);
+      const documentsData = await api.getMyFiles();
+      setMesDocuments(documentsData);
+    } catch (err: any) {
+      setDocError(err.message || "Erreur lors de l'envoi du document");
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
+  const handleDeleteDocument = async (id: number) => {
+    if (!confirm('Supprimer ce document ?')) return;
+    try {
+      await api.deleteFile(id);
+      setMesDocuments((prev) => prev.filter((d) => d.id !== id));
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la suppression du document');
+    }
   };
 
   const inputClass =
@@ -415,38 +535,42 @@ export default function ProfilePage() {
                       </Link>
                     </div>
                     <div className="space-y-4 p-6">
-                      {MOCK_CANDIDATURES.map((c) => (
-                        <div
-                          key={c.id}
-                          className="flex flex-col gap-6 rounded-xl border border-gray-100 p-4 transition-shadow hover:shadow-md"
-                        >
-                          {/* RANGÉE 1 : Icône + titre + badge */}
-                          <div className="flex items-start justify-between gap-4">
-                            {/* GAUCHE : Icône + titre + département */}
-                            <div className="flex items-start gap-4">
-                              <div
-                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-                                style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}
-                              >
-                                <Briefcase size={20} />
+                      {candidatures.length === 0 ? (
+                        <p className="text-gray-500 text-center py-8">Aucune candidature</p>
+                      ) : (
+                        candidatures.slice(0, 3).map((c) => (
+                          <div
+                            key={c.id}
+                            className="flex flex-col gap-6 rounded-xl border border-gray-100 p-4 transition-shadow hover:shadow-md"
+                          >
+                            {/* RANGÉE 1 : Icône + titre + badge */}
+                            <div className="flex items-start justify-between gap-4">
+                              {/* GAUCHE : Icône + titre + département */}
+                              <div className="flex items-start gap-4">
+                                <div
+                                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                                  style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}
+                                >
+                                  <Briefcase size={20} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate font-semibold text-gray-900">{c.offre?.titre || 'Poste'}</p>
+                                  <p className="text-sm text-gray-500">
+                                    {c.offre?.localisation || 'Lieu non précisé'}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="truncate font-semibold text-gray-900">{c.poste}</p>
-                                <p className="text-sm text-gray-500">
-                                  {DONNEES_PROVISOIRES.nomsEntreprises[c.id - 1] || 'Entreprise'}
-                                </p>
-                              </div>
+                              {/* DROITE : Badge de statut */}
+                              <StatusBadge status={mapStatutFrise(c.statut)} />
                             </div>
-                            {/* DROITE : Badge de statut */}
-                            <StatusBadge status={c.status} />
-                          </div>
 
-                          {/* RANGÉE 2 : Frise de progression */}
-                          <div className="w-full">
-                            <ProgressionFrise status={c.status} />
+                            {/* RANGÉE 2 : Frise de progression */}
+                            <div className="w-full">
+                              <ProgressionFrise status={mapStatutFrise(c.statut)} />
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -472,64 +596,62 @@ export default function ProfilePage() {
                       </div>
                     </div>
                     <div className="p-6">
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {DONNEES_PROVISOIRES.offresRecommandées.map((offre) => (
-                          <div
-                            key={offre.id}
-                            className="rounded-xl border border-gray-100 p-5 transition-shadow hover:shadow-md"
-                          >
-                            {/* Ligne du haut : badge match + cœur */}
-                            <div className="mb-3 flex items-center justify-between">
-                              <span
-                                className="inline-flex rounded-full px-2 py-0.5 text-xs font-bold"
-                                style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
+                      {offresRecommandeesVisibles.length === 0 ? (
+                        <p className="text-gray-500 text-center py-8">Aucune offre disponible pour le moment</p>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {offresRecommandeesVisibles.map((offre) => {
+                            const favori = isFavori(offre.id);
+                            return (
+                              <div
+                                key={offre.id}
+                                className="rounded-xl border border-gray-100 p-5 transition-shadow hover:shadow-md"
                               >
-                                {offre.correspondance}% MATCH
-                              </span>
-                              <button
-                                className="p-1 text-gray-400 transition-colors hover:text-red-500"
-                                aria-label="Sauvegarder cette offre"
-                              >
-                                <Heart size={18} />
-                              </button>
-                            </div>
-                            {/* Titre */}
-                            <h3
-                              className="mb-2 text-lg font-semibold"
-                              style={{ color: COLORS.midnight }}
-                            >
-                              {offre.titre}
-                            </h3>
-                            {/* Entreprise et ville */}
-                            <p className="mb-3 text-sm text-gray-600">
-                              {offre.entreprise} · Lomé
-                            </p>
-                            {/* Tags */}
-                            <div className="mb-4 flex flex-wrap gap-2">
-                              {offre.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                                {/* Ligne du haut : type + cœur */}
+                                <div className="mb-3 flex items-center justify-between">
+                                  <span
+                                    className="inline-flex rounded-full px-2 py-0.5 text-xs font-bold"
+                                    style={{ backgroundColor: COLORS.yellow, color: COLORS.midnight }}
+                                  >
+                                    {offre.type}
+                                  </span>
+                                  <button
+                                    onClick={() => toggleFavori(offre.id)}
+                                    className="p-1 text-gray-400 transition-colors hover:text-red-500"
+                                    aria-label={favori ? 'Retirer des favoris' : 'Sauvegarder cette offre'}
+                                    aria-pressed={favori}
+                                  >
+                                    <Heart size={18} className={favori ? 'text-red-500' : undefined} fill={favori ? 'currentColor' : 'none'} />
+                                  </button>
+                                </div>
+                                {/* Titre */}
+                                <h3
+                                  className="mb-2 text-lg font-semibold"
+                                  style={{ color: COLORS.midnight }}
                                 >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                            {/* Ligne du bas : date + détails */}
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-gray-500">{offre.date}</p>
-                              <Link
-                                href={`/offres/${offre.id}`}
-                                className="inline-flex items-center gap-1 text-sm font-semibold"
-                                style={{ color: COLORS.midnight }}
-                              >
-                                Détails
-                                <ArrowRight size={14} />
-                              </Link>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                                  {offre.title}
+                                </h3>
+                                {/* Département et ville */}
+                                <p className="mb-4 text-sm text-gray-600">
+                                  {offre.department} · {offre.location}
+                                </p>
+                                {/* Ligne du bas : date + détails */}
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs text-gray-500">{offre.createdAt ? ilYA(offre.createdAt) : offre.postedDate}</p>
+                                  <Link
+                                    href={`/offres/${offre.id}`}
+                                    className="inline-flex items-center gap-1 text-sm font-semibold"
+                                    style={{ color: COLORS.midnight }}
+                                  >
+                                    Détails
+                                    <ArrowRight size={14} />
+                                  </Link>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -570,30 +692,66 @@ export default function ProfilePage() {
                       {/* Section Documents */}
                       <div className="mb-6">
                         <h4 className="mb-3 text-xs font-semibold uppercase text-gray-500">DOCUMENTS</h4>
-                        <div className="flex items-center justify-between rounded-xl border border-gray-100 p-3">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="flex h-10 w-10 items-center justify-center rounded-lg"
-                              style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}
-                            >
-                              <Download size={18} />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">Curriculum_Vitae.pdf</p>
-                              <p className="text-xs text-gray-500">PDF · 2.4 MB</p>
-                            </div>
+
+                        {docError && (
+                          <p className="mb-2 text-xs text-red-600">{docError}</p>
+                        )}
+
+                        {mesDocuments.length === 0 ? (
+                          <p className="text-sm text-gray-500">Aucun document ajouté pour le moment.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {mesDocuments.map((doc) => (
+                              <div key={doc.id} className="flex items-center justify-between rounded-xl border border-gray-100 p-3">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <div
+                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                                    style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}
+                                  >
+                                    <FileText size={18} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium text-gray-900">{doc.libelle}</p>
+                                    <p className="text-xs text-gray-500">{doc.extension.toUpperCase()}</p>
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1">
+                                  <a
+                                    href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${doc.chemin}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 text-gray-400 transition-colors hover:text-gray-600"
+                                    aria-label="Télécharger le document"
+                                  >
+                                    <Download size={18} />
+                                  </a>
+                                  <button
+                                    onClick={() => handleDeleteDocument(doc.id)}
+                                    className="p-2 text-gray-400 transition-colors hover:text-red-500"
+                                    aria-label="Supprimer le document"
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <button
-                            className="p-2 text-gray-400 transition-colors hover:text-gray-600"
-                            aria-label="Télécharger le CV"
-                          >
-                            <Download size={18} />
-                          </button>
-                        </div>
-                        {/* Bouton mise à jour CV sur ligne séparée */}
-                        <button className="mt-3 w-full rounded-xl border-2 border-dashed border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700">
+                        )}
+
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".pdf,.doc,.docx"
+                          className="hidden"
+                          onChange={handleUploadDocument}
+                        />
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingDoc}
+                          className="mt-3 w-full rounded-xl border-2 border-dashed border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 disabled:opacity-60"
+                        >
                           <span className="mr-2 text-lg">+</span>
-                          Mettre à jour le CV
+                          {isUploadingDoc ? 'Envoi en cours...' : 'Ajouter un document (CV, etc.)'}
                         </button>
                       </div>
 
@@ -632,74 +790,108 @@ export default function ProfilePage() {
           {activeTab === 'candidatures' && (
             <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
               <h2 className="border-b border-gray-100 px-6 py-5 text-lg font-bold text-gray-900">
-                Mes candidatures ({MOCK_CANDIDATURES.length})
+                Mes candidatures ({candidatures.length})
               </h2>
               <div className="space-y-4 p-6">
-                {MOCK_CANDIDATURES.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/candidat/candidatures/${c.id}`}
-                    className="block rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-                        style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}
-                      >
-                        <Briefcase size={20} />
-                      </div>
-                      <div className="flex min-w-0 flex-1">
-                        <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-gray-900">{c.poste}</p>
-                            <p className="text-sm text-gray-500">
-                              {DONNEES_PROVISOIRES.nomsEntreprises[c.id - 1] || 'Entreprise'}
-                            </p>
+                {candidatures.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">Aucune candidature</p>
+                ) : (
+                  candidatures.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/candidat/candidatures/${c.id}`}
+                      className="block rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                          style={{ backgroundColor: '#F3F4F6', color: COLORS.midnight }}
+                        >
+                          <Briefcase size={20} />
+                        </div>
+                        <div className="flex min-w-0 flex-1">
+                          <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-gray-900">{c.offre?.titre || 'Poste'}</p>
+                              <p className="text-sm text-gray-500">
+                                {c.offre?.localisation || 'Lieu non précisé'}
+                              </p>
+                            </div>
+                            <StatusBadge status={mapStatutFrise(c.statut)} />
                           </div>
-                          <StatusBadge status={c.status} />
                         </div>
                       </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))
+                )}
               </div>
+            </div>
+          )}
+
+          {/* Contenu de l'onglet Mes favoris */}
+          {activeTab === 'favoris' && (
+            <div>
+              <h2 className="mb-4 text-lg font-bold text-gray-900">
+                Mes favoris ({mesFavorisJobs.filter((j) => favorisIds.has(j.id)).length})
+              </h2>
+              {mesFavorisJobs.filter((j) => favorisIds.has(j.id)).length === 0 ? (
+                <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
+                  <p className="text-sm text-gray-500">
+                    Aucune offre sauvegardée pour le moment.{' '}
+                    <Link href="/offres" className="font-semibold text-blue-600 hover:text-blue-700">
+                      Parcourir les offres
+                    </Link>
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {mesFavorisJobs
+                    .filter((j) => favorisIds.has(j.id))
+                    .map((job) => (
+                      <JobOfferCard key={job.id} job={job} />
+                    ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Contenu de l'onglet Mes entretiens */}
           {activeTab === 'entretiens' && (
             <div>
-              <h2 className="mb-4 text-lg font-bold text-gray-900">Mes entretiens ({MOCK_ENTRETIENS.length})</h2>
-              {MOCK_ENTRETIENS.length === 0 ? (
+              <h2 className="mb-4 text-lg font-bold text-gray-900">Mes entretiens ({entretiens.length})</h2>
+              {entretiens.length === 0 ? (
                 <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
                   <p className="text-sm text-gray-500">Aucun entretien planifié pour le moment.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {MOCK_ENTRETIENS.map((entretien) => (
-                    <Link
-                      key={entretien.id}
-                      href={`/candidat/entretiens/${entretien.id}`}
-                      className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 p-5 transition-all hover:shadow-md hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100"
-                          style={{ color: COLORS.midnight }}
-                        >
-                          <Calendar size={18} />
+                  {entretiens.map((entretien) => {
+                    const date = new Date(entretien.date);
+                    return (
+                      <Link
+                        key={entretien.id}
+                        href={`/candidat/entretiens/${entretien.id}`}
+                        className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 p-5 transition-all hover:shadow-md hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100"
+                            style={{ color: COLORS.midnight }}
+                          >
+                            <Calendar size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-bold text-gray-900">{entretien.candidature?.offre?.titre || 'Poste'}</p>
+                            <p className="text-sm text-gray-500">
+                              {date.toLocaleDateString('fr-FR')} à {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <p className="text-sm text-gray-500">Avec {entretien.utilisateur_entretien_utilisateurrh_idToutilisateur?.prenom} {entretien.utilisateur_entretien_utilisateurrh_idToutilisateur?.nom}</p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-bold text-gray-900">{entretien.poste}</p>
-                          <p className="text-sm text-gray-500">
-                            {entretien.date} à {entretien.heure}
-                          </p>
-                          <p className="text-sm text-gray-500">Avec {entretien.avec}</p>
-                        </div>
-                      </div>
-                      <EntretienTypeBadge type={entretien.type} />
-                    </Link>
-                  ))}
+                        <EntretienTypeBadge type={entretien.type === 'visio' ? 'Visio' : 'Présentiel'} />
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -710,13 +902,17 @@ export default function ProfilePage() {
             <div className="rounded-2xl bg-white p-6 shadow-sm">
               <h2 className="mb-4 text-lg font-bold text-gray-900">Notifications</h2>
               <div className="space-y-3">
-                {MOCK_NOTIFICATIONS.map((n) => (
-                  <div key={n.id} className="rounded-xl bg-gray-50 px-5 py-4">
-                    <p className="font-semibold text-gray-900">{n.titre}</p>
-                    <p className="mt-1 text-sm text-gray-600">{n.message}</p>
-                    <p className="mt-2 text-xs text-gray-400">{n.date}</p>
-                  </div>
-                ))}
+                {notifications.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">Aucune notification</p>
+                ) : (
+                  notifications.map((n) => (
+                    <div key={n.id} className="rounded-xl bg-gray-50 px-5 py-4">
+                      <p className="font-semibold text-gray-900">{n.titre}</p>
+                      <p className="mt-1 text-sm text-gray-600">{n.contenu}</p>
+                      <p className="mt-2 text-xs text-gray-400">{new Date(n.date_envoi).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -889,7 +1085,6 @@ export default function ProfilePage() {
                             Féminin
                           </label>
                         </div>
-                        <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base</p>
                       </div>
 
                       <div>
@@ -903,7 +1098,6 @@ export default function ProfilePage() {
                           onChange={(e) => setProfileFormData({ ...profileFormData, ville: e.target.value })}
                           className={inputClass}
                         />
-                        <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base (il y a "quartier" mais pas "ville")</p>
                       </div>
                     </div>
                   </section>
@@ -933,7 +1127,6 @@ export default function ProfilePage() {
                           onChange={(e) => setProfileFormData({ ...profileFormData, anneesExperience: parseInt(e.target.value) || 0 })}
                           className={inputClass}
                         />
-                        <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base</p>
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -948,7 +1141,6 @@ export default function ProfilePage() {
                             onChange={(e) => setProfileFormData({ ...profileFormData, niveauEtude: e.target.value })}
                             className={inputClass}
                           />
-                          <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base</p>
                         </div>
                         <div>
                           <label htmlFor="domaineEtudes" className={labelClass}>
@@ -961,27 +1153,51 @@ export default function ProfilePage() {
                             onChange={(e) => setProfileFormData({ ...profileFormData, domaineEtudes: e.target.value })}
                             className={inputClass}
                           />
-                          <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base</p>
                         </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="competences" className={labelClass}>
+                          Compétences
+                        </label>
+                        <input
+                          id="competences"
+                          type="text"
+                          value={profileFormData.competences}
+                          onChange={(e) => setProfileFormData({ ...profileFormData, competences: e.target.value })}
+                          placeholder="Ex: React, Node.js, SQL"
+                          className={inputClass}
+                        />
+                        <p className="mt-1 text-xs text-gray-400">
+                          Séparées par des virgules — utilisées pour calculer ta compatibilité avec les offres.
+                        </p>
                       </div>
                     </div>
                   </section>
+
+                  {profileErrors.general && (
+                    <div className="text-red-600 text-sm bg-red-50 border border-red-200 p-3 rounded-md">
+                      {profileErrors.general}
+                    </div>
+                  )}
 
                   {/* Boutons d'action */}
                   <div className="flex gap-3">
                     <button
                       onClick={handleCancelProfile}
-                      className="flex-1 rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      disabled={isSavingProfile}
+                      className="flex-1 rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
                     >
                       Annuler
                     </button>
                     <button
                       onClick={handleSaveProfile}
-                      className="flex-1 rounded-lg px-4 py-3 font-bold text-gray-900 shadow-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                      disabled={isSavingProfile}
+                      className="flex-1 rounded-lg px-4 py-3 font-bold text-gray-900 shadow-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-70"
                       style={{ backgroundColor: COLORS.yellow }}
                     >
                       <Check size={18} />
-                      Enregistrer
+                      {isSavingProfile ? 'Enregistrement...' : 'Enregistrer'}
                     </button>
                   </div>
                 </div>
@@ -1037,20 +1253,17 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Champs manquants en base */}
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Sexe</p>
-                        <p className="font-semibold text-gray-900">{DONNEES_PROVISOIRES.sexe}</p>
-                        <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base</p>
+                        <p className="font-semibold text-gray-900">{user?.sexe || 'Non renseigné'}</p>
                       </div>
 
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Ville de résidence</p>
                         <p className="font-semibold text-gray-900 flex items-center gap-2">
                           <MapPin size={16} className="text-gray-400" />
-                          {DONNEES_PROVISOIRES.ville}
+                          {user?.ville || 'Non renseignée'}
                         </p>
-                        <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base (il y a "quartier" mais pas "ville")</p>
                       </div>
                     </div>
                   </section>
@@ -1070,21 +1283,25 @@ export default function ProfilePage() {
                     <div className="space-y-4">
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Années d'expérience</p>
-                        <p className="font-semibold text-gray-900">{DONNEES_PROVISOIRES.anneesExperience} ans</p>
-                        <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base</p>
+                        <p className="font-semibold text-gray-900">
+                          {user?.annees_experience != null ? `${user.annees_experience} ans` : 'Non renseigné'}
+                        </p>
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                           <p className="text-sm text-gray-500 mb-1">Niveau d'étude</p>
-                          <p className="font-semibold text-gray-900">{DONNEES_PROVISOIRES.niveauEtude}</p>
-                          <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base</p>
+                          <p className="font-semibold text-gray-900">{user?.niveau_etude || 'Non renseigné'}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500 mb-1">Domaine d'études</p>
-                          <p className="font-semibold text-gray-900">{DONNEES_PROVISOIRES.domaineEtudes}</p>
-                          <p className="mt-1 text-xs text-gray-400">TODO : champ absent en base</p>
+                          <p className="font-semibold text-gray-900">{user?.domaine_etudes || 'Non renseigné'}</p>
                         </div>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Compétences</p>
+                        <p className="font-semibold text-gray-900">{user?.competences || 'Non renseignées'}</p>
                       </div>
                     </div>
                   </section>
@@ -1101,20 +1318,55 @@ export default function ProfilePage() {
                         Mes documents
                       </h2>
                     </div>
-                    <div className="flex items-center justify-between rounded-xl border border-gray-100 p-4">
-                      <div className="flex items-center gap-3">
-                        <FileText size={20} className="text-gray-500" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{DONNEES_PROVISOIRES.cvFile}</p>
-                          <p className="text-xs text-gray-500">PDF · 2.4 MB</p>
-                        </div>
+
+                    {docError && (
+                      <p className="mb-2 text-xs text-red-600">{docError}</p>
+                    )}
+
+                    {mesDocuments.length === 0 ? (
+                      <p className="text-sm text-gray-500">Aucun document ajouté pour le moment.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {mesDocuments.map((doc) => (
+                          <div key={doc.id} className="flex items-center justify-between rounded-xl border border-gray-100 p-4">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <FileText size={20} className="shrink-0 text-gray-500" />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-gray-900">{doc.libelle}</p>
+                                <p className="text-xs text-gray-500">{doc.extension.toUpperCase()}</p>
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-3">
+                              <a
+                                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${doc.chemin}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                              >
+                                <Download size={16} />
+                                Télécharger
+                              </a>
+                              <button
+                                onClick={() => handleDeleteDocument(doc.id)}
+                                className="text-gray-400 hover:text-red-500"
+                                aria-label="Supprimer le document"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <button className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                        <Download size={16} />
-                        Télécharger
-                      </button>
-                    </div>
-                    <p className="mt-3 text-xs text-gray-400">TODO : champ absent en base (fichier.cv)</p>
+                    )}
+
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingDoc}
+                      className="mt-3 w-full rounded-xl border-2 border-dashed border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 disabled:opacity-60"
+                    >
+                      <span className="mr-2 text-lg">+</span>
+                      {isUploadingDoc ? 'Envoi en cours...' : 'Ajouter un document'}
+                    </button>
                   </section>
 
                   <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
@@ -1141,7 +1393,7 @@ export default function ProfilePage() {
                           <Briefcase size={20} />
                         </div>
                         <div>
-                          <p className="text-2xl font-bold text-gray-900">{MOCK_CANDIDATURES.length}</p>
+                          <p className="text-2xl font-bold text-gray-900">{candidatures.length}</p>
                           <p className="text-sm text-gray-600">Candidatures déposées</p>
                         </div>
                       </button>
@@ -1156,7 +1408,7 @@ export default function ProfilePage() {
                           <Calendar size={20} />
                         </div>
                         <div>
-                          <p className="text-2xl font-bold text-gray-900">{MOCK_ENTRETIENS.length}</p>
+                          <p className="text-2xl font-bold text-gray-900">{entretiens.length}</p>
                           <p className="text-sm text-gray-600">Entretiens programmés</p>
                         </div>
                       </button>

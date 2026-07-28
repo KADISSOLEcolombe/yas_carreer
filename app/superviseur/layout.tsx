@@ -12,7 +12,7 @@ export default function SuperviseurRootLayout({ children }: { children: React.Re
   }
 
   return (
-    <RoleGuard allowedRoles={['SUPERVISOR']} redirectTo="/superviseur/login">
+    <RoleGuard allowedRoles={['SUPERVISEUR']} redirectTo="/superviseur/login">
       <SuperviseurLayout>{children}</SuperviseurLayout>
     </RoleGuard>
   );

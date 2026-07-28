@@ -12,24 +12,16 @@ import {
   LogOut,
   Clock,
   CircleDollarSign,
-  Rocket,
-  Target,
-  Gift,
-  CheckCircle2,
-  Globe,
-  Shield,
   Building2,
   Link2,
   Mail,
   Bookmark,
   Play,
-  Home,
-  Heart,
-  Wifi,
-  Coffee,
+  Calendar,
 } from 'lucide-react';
 import ApplicationModal from '../../../components/ApplicationModal';
 import { api, mapOffre, type Job } from '../../../lib/api';
+import { useFavoris } from '../../../context/FavorisContext';
 
 const COLORS = {
   yellow: '#facc15',
@@ -42,74 +34,6 @@ const COLORS = {
   border: '#E5E7EB',
 };
 
-// TODO : à remplacer par les vraies données quand le backend sera connecté
-const DONNEES_PROVISOIRES = {
-  statutRecrutement: 'RECRUTEMENT EN COURS',
-  missionsIntro:
-    'En tant que membre clé de notre équipe technique, vous serez responsable de la conception, du développement et de la maintenance de nos solutions digitales innovantes.',
-  missions: [
-    'Concevoir et développer des applications web performantes et scalables',
-    'Collaborer avec les équipes produit et design pour définir les spécifications',
-    'Participer aux revues de code et assurer la qualité du code produit',
-    'Optimiser les performances et la sécurité des applications existantes',
-    'Mentorer les développeurs juniors et partager vos connaissances',
-  ],
-  competencesTechniques: [
-    'React.js / Next.js',
-    'Node.js / Express',
-    'TypeScript',
-    'PostgreSQL / MongoDB',
-    'Docker / Kubernetes',
-    'AWS / Cloud',
-    'Git / CI-CD',
-    'Tailwind CSS',
-  ],
-  experienceSoftSkills: [
-    'Minimum 5 ans d\'expérience en développement fullstack',
-    'Expérience en architecture microservices',
-    'Capacité à travailler en équipe agile',
-    'Excellentes compétences en communication',
-    'Autonomie et sens de l\'initiative',
-    'Maîtrise du français et de l\'anglais',
-  ],
-  avantages: [
-    {
-      icon: 'remote' as const,
-      titre: 'Télétravail',
-      description: '2 jours par semaine en remote',
-    },
-    {
-      icon: 'health' as const,
-      titre: 'Bien-être',
-      description: 'Mutuelle santé premium',
-    },
-    {
-      icon: 'training' as const,
-      titre: 'Formation',
-      description: 'Budget formation annuel',
-    },
-    {
-      icon: 'office' as const,
-      titre: 'Bureaux modernes',
-      description: 'Espaces de coworking',
-    },
-  ],
-  entreprise: {
-    nom: 'YAS Togo HR',
-    description:
-      'Leader dans le secteur des télécommunications et des services digitaux au Togo.',
-    effectif: '50-200 employés',
-    siteWeb: 'www.yastogo.com',
-    certification: 'Entreprise certifiée',
-  },
-};
-
-const AVANTAGE_ICONS = {
-  remote: Home,
-  health: Heart,
-  training: Wifi,
-  office: Coffee,
-};
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -273,8 +197,8 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<Job | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const { isFavori, toggleFavori } = useFavoris();
 
   useEffect(() => {
     const loadJob = async () => {
@@ -366,7 +290,11 @@ export default function JobDetailPage() {
 
   const renderApplyActions = () => (
     <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-      {isAuthenticated ? (
+      {job.statut !== 'PUBLIEE' ? (
+        <span className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-bold bg-gray-100 text-gray-500">
+          Offre clôturée
+        </span>
+      ) : isAuthenticated ? (
         <button
           onClick={() => setIsApplicationModalOpen(true)}
           className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-bold transition-all hover:opacity-90 shadow-sm"
@@ -386,13 +314,13 @@ export default function JobDetailPage() {
         </Link>
       )}
       <button
-        onClick={() => setSaved(!saved)}
+        onClick={() => toggleFavori(job.id)}
         className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-bold border-2 transition-colors hover:bg-blue-50"
         style={{ borderColor: COLORS.midnight, color: COLORS.midnight }}
-        aria-pressed={saved}
+        aria-pressed={isFavori(job.id)}
       >
-        <Bookmark size={18} fill={saved ? COLORS.midnight : 'none'} aria-hidden="true" />
-        {saved ? 'Sauvegardée' : 'Sauvegarder'}
+        <Bookmark size={18} fill={isFavori(job.id) ? COLORS.midnight : 'none'} aria-hidden="true" />
+        {isFavori(job.id) ? 'Sauvegardée' : 'Sauvegarder'}
       </button>
     </div>
   );
@@ -417,7 +345,7 @@ export default function JobDetailPage() {
               <div className="flex-1 min-w-0">
                 <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
                   <Briefcase size={14} aria-hidden="true" />
-                  {DONNEES_PROVISOIRES.statutRecrutement}
+                  {job.statut === 'PUBLIEE' ? 'RECRUTEMENT EN COURS' : 'OFFRE FERMÉE'}
                 </p>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4" style={{ color: COLORS.midnight }}>
                   {job.title}
@@ -429,7 +357,7 @@ export default function JobDetailPage() {
                   </span>
                   <span className="inline-flex items-center gap-2">
                     <Clock size={16} className="shrink-0" style={{ color: COLORS.midnight }} aria-hidden="true" />
-                    {typeContrat} (Temps plein)
+                    {typeContrat}
                   </span>
                   <span className="inline-flex items-center gap-2">
                     <CircleDollarSign size={16} className="shrink-0" style={{ color: COLORS.midnight }} aria-hidden="true" />
@@ -451,88 +379,19 @@ export default function JobDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Colonne gauche (~2/3) */}
             <div className="lg:col-span-2 space-y-6">
-              <SectionCard icon={Rocket} title="Missions">
-                <p className="text-gray-700 leading-relaxed mb-5">
-                  {DONNEES_PROVISOIRES.missionsIntro}
-                </p>
-                <ul className="space-y-3">
-                  {DONNEES_PROVISOIRES.missions.map((mission, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      <CheckCircle2
-                        size={18}
-                        className="shrink-0 mt-0.5"
-                        style={{ color: COLORS.yellow }}
-                        aria-hidden="true"
-                      />
-                      <span className="text-gray-700">{mission}</span>
-                    </li>
-                  ))}
-                </ul>
-              </SectionCard>
-
-              <SectionCard icon={Target} title="Profil Recherché">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-4">
-                      Expertise Technique
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {DONNEES_PROVISOIRES.competencesTechniques.map((skill) => (
-                        <span
-                          key={skill}
-                          className="inline-flex px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-4">
-                      Expérience &amp; Soft Skills
-                    </h3>
-                    <ul className="space-y-2.5">
-                      {DONNEES_PROVISOIRES.experienceSoftSkills.map((skill, index) => (
-                        <li key={index} className="flex items-start gap-2.5">
-                          <span
-                            className="w-1.5 h-1.5 rounded-full mt-2 shrink-0"
-                            style={{ backgroundColor: COLORS.yellow }}
-                            aria-hidden="true"
-                          />
-                          <span className="text-gray-700 text-sm">{skill}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </SectionCard>
-
-              <SectionCard icon={Gift} title="Avantages">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {DONNEES_PROVISOIRES.avantages.map((avantage) => {
-                    const AvantageIcon = AVANTAGE_ICONS[avantage.icon];
-                    return (
-                      <div
-                        key={avantage.titre}
-                        className="flex gap-4 p-4 rounded-xl bg-gray-50 border border-gray-100"
-                      >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
-                          <AvantageIcon size={20} style={{ color: COLORS.midnight }} aria-hidden="true" />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900 mb-0.5">{avantage.titre}</h4>
-                          <p className="text-sm text-gray-600">{avantage.description}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </SectionCard>
-
-              {/* Exigence — champ réel de l'offre (ex-description) */}
+              {/* Description / Exigences de l'offre */}
               {exigence && (
-                <SectionCard icon={Briefcase} title="Description">
+                <SectionCard icon={Briefcase} title="Description & Exigences">
                   <p className="text-gray-700 leading-relaxed whitespace-pre-line">{exigence}</p>
+                </SectionCard>
+              )}
+
+              {/* Date limite */}
+              {job.deadline && (
+                <SectionCard icon={Calendar} title="Date limite">
+                  <p className="text-gray-700">
+                    Les candidatures sont ouvertes jusqu'au <strong>{job.deadline}</strong>.
+                  </p>
                 </SectionCard>
               )}
             </div>

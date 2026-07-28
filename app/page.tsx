@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getJobs, type Job } from '../lib/jobs';
+import { api, mapOffre, type Job } from '../lib/api';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -254,11 +254,11 @@ function RecentOffersSection() {
   const [offers, setOffers] = useState<Job[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  const loadOffers = () => {
+  const loadOffers = async () => {
     try {
-      const loadedOffers = getJobs().slice(0, 6);
-      console.log('Offres récentes chargées:', loadedOffers.length, loadedOffers);
-      setOffers(loadedOffers);
+      const apiOffres = await api.getOffres();
+      const mappedOffers = apiOffres.map(mapOffre).slice(0, 6);
+      setOffers(mappedOffers);
       setLoaded(true);
     } catch (error) {
       console.error('Erreur lors du chargement des offres récentes:', error);
@@ -269,12 +269,6 @@ function RecentOffersSection() {
 
   useEffect(() => {
     loadOffers();
-    window.addEventListener('yas-jobs-updated', loadOffers);
-    window.addEventListener('focus', loadOffers);
-    return () => {
-      window.removeEventListener('yas-jobs-updated', loadOffers);
-      window.removeEventListener('focus', loadOffers);
-    };
   }, []);
 
   return (

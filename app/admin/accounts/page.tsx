@@ -1,66 +1,35 @@
 'use client';
 
-import { useState } from 'react';
-import { UserPlus, Pencil, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { UserPlus, Trash2, X, Power } from 'lucide-react';
 import AdminDashboardHeader from '../../../components/admin/AdminDashboardHeader';
+import { api, type User, type UserRole } from '../../../lib/api';
 
 const COLORS = {
   midnight: '#1e3a8a',
 };
 
-type Role = 'candidate' | 'hr' | 'admin' | 'supervisor';
-type Status = 'ACTIF' | 'INACTIF';
+type RoleCreable = 'RH' | 'SUPERVISEUR' | 'ADMIN';
 
-interface Utilisateur {
-  id: number;
-  nom: string;
-  email: string;
-  role: Role;
-  statut: Status;
-  date: string;
-}
-
-const ROLE_BADGE: Record<Role, { bg: string; text: string }> = {
-  candidate: { bg: '#DBEAFE', text: '#1E40AF' },
-  hr: { bg: '#FEF3C7', text: '#92400E' },
-  admin: { bg: '#EDE9FE', text: '#6D28D9' },
-  supervisor: { bg: '#D1FAE5', text: '#065F46' },
+const ROLE_BADGE: Record<UserRole, { bg: string; text: string; label: string }> = {
+  CANDIDAT: { bg: '#DBEAFE', text: '#1E40AF', label: 'Candidat' },
+  RH: { bg: '#FEF3C7', text: '#92400E', label: 'RH' },
+  ADMIN: { bg: '#EDE9FE', text: '#6D28D9', label: 'Administrateur' },
+  SUPERVISEUR: { bg: '#D1FAE5', text: '#065F46', label: 'Superviseur' },
 };
-
-const STATUS_BADGE: Record<Status, { bg: string; text: string; label: string }> = {
-  ACTIF: { bg: '#D1FAE5', text: '#065F46', label: 'Actif' },
-  INACTIF: { bg: '#F3F4F6', text: '#4B5563', label: 'Inactif' },
-};
-
-// Données d'exemple en dur — à remplacer par un appel API plus tard
-const MOCK_UTILISATEURS: Utilisateur[] = [
-  { id: 1, nom: 'Candidat Demo', email: 'candidat@yas.tg', role: 'candidate', statut: 'ACTIF', date: '17/01/2025' },
-  { id: 2, nom: 'Marie Dupont', email: 'hr@yas.tg', role: 'hr', statut: 'ACTIF', date: '16/01/2025' },
-  { id: 3, nom: 'Admin YAS', email: 'admin@yas.tg', role: 'admin', statut: 'ACTIF', date: '17/01/2025' },
-  { id: 4, nom: 'Kofi Supervisor', email: 'supervisor@yas.tg', role: 'supervisor', statut: 'ACTIF', date: '15/01/2025' },
-  { id: 5, nom: 'Ama Koffi', email: 'ama@yas.tg', role: 'candidate', statut: 'INACTIF', date: '10/01/2025' },
-  { id: 6, nom: 'Kwame Tossou', email: 'kwame@yas.tg', role: 'candidate', statut: 'ACTIF', date: '12/01/2025' },
-];
 
 const EMPTY_FORM = {
   nom: '',
+  prenom: '',
   email: '',
+  telephone: '',
+  quartier: '',
   password: '',
-  role: 'candidate' as Role,
-  statut: 'ACTIF' as Status,
+  role: 'RH' as RoleCreable,
 };
 
-function RoleBadge({ role }: { role: Role }) {
-  const style = ROLE_BADGE[role];
-  return (
-    <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: style.bg, color: style.text }}>
-      {role}
-    </span>
-  );
-}
-
-function StatusBadge({ statut }: { statut: Status }) {
-  const style = STATUS_BADGE[statut];
+function RoleBadge({ role }: { role: UserRole }) {
+  const style = ROLE_BADGE[role] || { bg: '#E2E8F0', text: '#4B5563', label: role };
   return (
     <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: style.bg, color: style.text }}>
       {style.label}
@@ -68,47 +37,104 @@ function StatusBadge({ statut }: { statut: Status }) {
   );
 }
 
+function StatusBadge({ active }: { active?: boolean }) {
+  return active ? (
+    <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+      Actif
+    </span>
+  ) : (
+    <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: '#F3F4F6', color: '#4B5563' }}>
+      Inactif
+    </span>
+  );
+}
+
 export default function AdminAccountsPage() {
-  const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>(MOCK_UTILISATEURS);
+  const [utilisateurs, setUtilisateurs] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const loadUsers = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await api.getUsers();
+      setUtilisateurs(data);
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des utilisateurs:', err);
+      setError(err.message || 'Impossible de charger les utilisateurs');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   const handleOpenModal = () => {
     setForm(EMPTY_FORM);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setForm(EMPTY_FORM);
+    setFormError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setFormError(null);
 
-    const newUtilisateur: Utilisateur = {
-      id: utilisateurs.length + 1,
+    const data = {
       nom: form.nom,
+      prenom: form.prenom,
       email: form.email,
-      role: form.role,
-      statut: form.statut,
-      date: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      telephone: form.telephone,
+      quartier: form.quartier,
+      password: form.password,
     };
 
-    setUtilisateurs([...utilisateurs, newUtilisateur]);
-    setIsSubmitting(false);
-    handleCloseModal();
+    try {
+      if (form.role === 'RH') {
+        await api.createRhAccount(data);
+      } else if (form.role === 'SUPERVISEUR') {
+        await api.createSuperviseurAccount(data);
+      } else {
+        await api.createAdminAccount(data);
+      }
+      await loadUsers();
+      handleCloseModal();
+    } catch (err: any) {
+      setFormError(err.message || 'Erreur lors de la création du compte');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleEdit = (nom: string) => {
-    alert(`Modifier « ${nom} » — formulaire à venir.`);
+  const handleToggleStatus = async (u: User) => {
+    try {
+      await api.toggleUserStatus(u.id, !u.active);
+      await loadUsers();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la mise à jour du statut');
+    }
   };
 
-  const handleDelete = (id: number, nom: string) => {
-    if (confirm(`Supprimer l'utilisateur « ${nom} » ? Cette action est irréversible.`)) {
-      setUtilisateurs((prev) => prev.filter((u) => u.id !== id));
+  const handleDelete = async (id: number, nom: string) => {
+    if (!confirm(`Supprimer l'utilisateur « ${nom} » ? Cette action est irréversible.`)) return;
+    try {
+      await api.deleteUser(id);
+      await loadUsers();
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de la suppression de l'utilisateur");
     }
   };
 
@@ -130,40 +156,51 @@ export default function AdminAccountsPage() {
         </div>
 
         <div className="px-6">
-          {utilisateurs.map((u) => (
-            <div key={u.id} className="flex items-center justify-between gap-4 border-b border-gray-100 py-4 last:border-b-0">
-              <div className="flex min-w-0 items-center gap-3">
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-                  style={{ backgroundColor: COLORS.midnight }}
-                >
-                  {u.nom.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate font-bold text-gray-900">{u.nom}</p>
-                  <p className="truncate text-sm text-gray-500">{u.email}</p>
-                </div>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-3">
-                <RoleBadge role={u.role} />
-                <StatusBadge statut={u.statut} />
-                <span className="text-sm text-gray-500">{u.date}</span>
-                <button
-                  onClick={() => handleEdit(u.nom)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                >
-                  <Pencil size={16} />
-                </button>
-                <button
-                  onClick={() => handleDelete(u.id, u.nom)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-400" />
             </div>
-          ))}
+          ) : error ? (
+            <p className="text-center text-red-600 py-12">{error}</p>
+          ) : utilisateurs.length === 0 ? (
+            <p className="text-center text-gray-500 py-12">Aucun utilisateur</p>
+          ) : (
+            utilisateurs.map((u) => (
+              <div key={u.id} className="flex items-center justify-between gap-4 border-b border-gray-100 py-4 last:border-b-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                    style={{ backgroundColor: COLORS.midnight }}
+                  >
+                    {u.nom.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-gray-900">{u.prenom} {u.nom}</p>
+                    <p className="truncate text-sm text-gray-500">{u.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-3">
+                  <RoleBadge role={u.role} />
+                  <StatusBadge active={u.active} />
+                  <button
+                    onClick={() => handleToggleStatus(u)}
+                    title={u.active ? 'Désactiver ce compte' : 'Activer ce compte'}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    <Power size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(u.id, `${u.prenom} ${u.nom}`)}
+                    title="Supprimer ce compte"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -182,16 +219,34 @@ export default function AdminAccountsPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Nom complet *</label>
-                <input
-                  required
-                  type="text"
-                  value={form.nom}
-                  onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                  placeholder="Ex: Jean Dupont"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
-                />
+              {formError && (
+                <div className="text-red-600 text-sm bg-red-50 border border-red-200 p-3 rounded-md">
+                  {formError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Nom *</label>
+                  <input
+                    required
+                    type="text"
+                    value={form.nom}
+                    onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                    placeholder="Ex: Dupont"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Prénom</label>
+                  <input
+                    type="text"
+                    value={form.prenom}
+                    onChange={(e) => setForm({ ...form, prenom: e.target.value })}
+                    placeholder="Ex: Jean"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                  />
+                </div>
               </div>
 
               <div>
@@ -202,7 +257,7 @@ export default function AdminAccountsPage() {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="Ex: jean.dupont@email.com"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                 />
               </div>
 
@@ -211,40 +266,29 @@ export default function AdminAccountsPage() {
                 <input
                   required
                   type="password"
+                  minLength={6}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                  placeholder="Minimum 6 caractères"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Rôle *</label>
-                  <select
-                    required
-                    value={form.role}
-                    onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
-                  >
-                    <option value="candidate">Candidat</option>
-                    <option value="hr">RH</option>
-                    <option value="admin">Admin</option>
-                    <option value="supervisor">Superviseur</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Statut *</label>
-                  <select
-                    required
-                    value={form.statut}
-                    onChange={(e) => setForm({ ...form, statut: e.target.value as Status })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
-                  >
-                    <option value="ACTIF">Actif</option>
-                    <option value="INACTIF">Inactif</option>
-                  </select>
-                </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Rôle *</label>
+                <select
+                  required
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value as RoleCreable })}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                >
+                  <option value="RH">RH</option>
+                  <option value="SUPERVISEUR">Superviseur</option>
+                  <option value="ADMIN">Administrateur</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-400">
+                  Les comptes Candidat s&apos;inscrivent eux-mêmes depuis le site.
+                </p>
               </div>
 
               <div className="flex gap-3 pt-4">

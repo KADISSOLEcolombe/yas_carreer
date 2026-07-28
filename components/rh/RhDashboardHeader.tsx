@@ -30,7 +30,7 @@ export default function RhDashboardHeader() {
           <h1 className="text-2xl font-bold" style={{ color: COLORS.midnight }}>
             Tableau de bord RH
           </h1>
-          <p className="text-gray-500">Bienvenue, {user?.nom || 'Marie Dupont'}</p>
+          <p className="text-gray-500">Bienvenue{user?.nom ? `, ${user.nom}` : ''}</p>
         </div>
         <NotificationBell />
       </div>

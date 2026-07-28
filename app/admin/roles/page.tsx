@@ -105,7 +105,7 @@ export default function AdminRolesPage() {
                         <select
                           value={user.role}
                           onChange={(e) => handleRoleChange(user, e.target.value as UserRole)}
-                          className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                          className="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-900"
                         >
                           {AVAILABLE_ROLES.map((r) => (
                             <option key={r} value={r}>
@@ -165,7 +165,7 @@ export default function AdminRolesPage() {
                         <select
                           value={user.role}
                           onChange={(e) => handleRoleChange(user, e.target.value as UserRole)}
-                          className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                          className="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-900"
                         >
                           {AVAILABLE_ROLES.map((role) => (
                             <option key={role} value={role}>

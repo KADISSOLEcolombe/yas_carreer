@@ -12,18 +12,26 @@ const EMPTY_FORM = {
   exigence: '',
   localisation: 'Lomé',
   date_limite: '',
-  id_departement: 1, // À adapter avec les vrais départements
+  id_departement: 1,
   exigences_fichier: 'CV',
+  competences: '',
 };
 
 export default function RHOffresPage() {
   const [offres, setOffres] = useState<ApiOffre[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [departements, setDepartements] = useState<Array<{ id: number; nom: string }>>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getDepartements()
+      .then(setDepartements)
+      .catch((err) => console.error('Erreur lors du chargement des départements:', err));
+  }, []);
 
   const loadOffres = async () => {
     setIsLoading(true);
@@ -90,6 +98,7 @@ export default function RHOffresPage() {
         date_limite: form.date_limite || new Date().toISOString().split('T')[0],
         id_departement: form.id_departement,
         exigences_fichier: form.exigences_fichier,
+        competences: form.competences,
       });
       loadOffres();
       setIsSubmitting(false);
@@ -210,7 +219,7 @@ export default function RHOffresPage() {
                   value={form.titre}
                   onChange={(e) => setForm({ ...form, titre: e.target.value })}
                   placeholder="Ex: Développeur Full Stack"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
                 />
               </div>
 
@@ -220,7 +229,7 @@ export default function RHOffresPage() {
                   <input
                     value={form.localisation}
                     onChange={(e) => setForm({ ...form, localisation: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -228,7 +237,7 @@ export default function RHOffresPage() {
                   <select
                     value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
                   >
                     <option>CDI</option>
                     <option>CDD</option>
@@ -245,7 +254,7 @@ export default function RHOffresPage() {
                   value={form.exigence}
                   onChange={(e) => setForm({ ...form, exigence: e.target.value })}
                   placeholder="Décris le poste, les exigences et les missions principales."
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
                 />
               </div>
 
@@ -256,17 +265,22 @@ export default function RHOffresPage() {
                     type="date"
                     value={form.date_limite}
                     onChange={(e) => setForm({ ...form, date_limite: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Département (ID)</label>
-                  <input
-                    type="number"
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Département</label>
+                  <select
                     value={form.id_departement}
                     onChange={(e) => setForm({ ...form, id_departement: Number(e.target.value) })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
-                  />
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
+                  >
+                    {departements.map((dep) => (
+                      <option key={dep.id} value={dep.id}>
+                        {dep.nom}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -276,8 +290,21 @@ export default function RHOffresPage() {
                   value={form.exigences_fichier}
                   onChange={(e) => setForm({ ...form, exigences_fichier: e.target.value })}
                   placeholder="Ex: CV"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
                 />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Compétences recherchées</label>
+                <input
+                  value={form.competences}
+                  onChange={(e) => setForm({ ...form, competences: e.target.value })}
+                  placeholder="Ex: React, Node.js, SQL"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Séparées par des virgules — utilisées pour calculer le score de compatibilité des candidats.
+                </p>
               </div>
 
               <div className="flex gap-3 pt-4">

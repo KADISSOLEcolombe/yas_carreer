@@ -12,7 +12,7 @@ export default function RHRootLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <RoleGuard allowedRoles={['RECRUITER', 'ADMIN']} redirectTo="/rh/login">
+    <RoleGuard allowedRoles={['RH', 'ADMIN']} redirectTo="/rh/login">
       <RHLayout>{children}</RHLayout>
     </RoleGuard>
   );

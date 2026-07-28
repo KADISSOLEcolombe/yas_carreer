@@ -1,6 +1,6 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-export type UserRole = 'Candidat' | 'RH' | 'ADMIN' | 'Superviseur';
+export type UserRole = 'CANDIDAT' | 'RH' | 'ADMIN' | 'SUPERVISEUR';
 
 export interface User {
   id: number;
@@ -12,14 +12,20 @@ export interface User {
   droits: string[];
   telephone?: string;
   quartier?: string;
-  supprime?: boolean;
+  active?: boolean;
+  sexe?: string | null;
+  ville?: string | null;
+  annees_experience?: number | null;
+  niveau_etude?: string | null;
+  domaine_etudes?: string | null;
+  competences?: string | null;
 }
 
 export interface RhStats {
-  offersCount: number;
-  applicationsCount: number;
-  pendingCount: number;
-  candidatesCount: number;
+  offresCount: number;
+  candidaturesCount: number;
+  enAttenteCount: number;
+  candidatsCount: number;
 }
 
 // Types pour les offres du backend
@@ -36,6 +42,10 @@ export interface ApiOffre {
     id: number;
     nom: string;
   };
+  _count?: {
+    candidatures: number;
+  };
+  competences?: string | null;
 }
 
 // Types pour les offres du frontend (format attendu par les composants)
@@ -55,12 +65,23 @@ export interface Job {
   requirements?: string;
   responsibilities?: string;
   createdAt?: string;
+  candidaturesCount?: number;
+  statut?: string;
+}
+
+export interface HistoriqueStatutEntry {
+  id: number;
+  id_candidature: number;
+  ancien_statut: string | null;
+  nouveau_statut: string;
+  date_changement: string;
+  id_auteur: number | null;
 }
 
 // Types pour les candidatures du backend
 export interface ApiCandidature {
   id: number;
-  statut: 'EN_ATTENTE' | 'ACCEPTEE' | 'REJETEE' | 'ENTRETIEN';
+  statut: 'EN_ATTENTE' | 'EN_EXAMEN' | 'ENTRETIEN' | 'ACCEPTEE' | 'REJETEE';
   date_soumission: string;
   score?: number;
   id_offre: number;
@@ -93,6 +114,7 @@ export interface Application {
   telephone: string;
   coverLetter: string;
   cvFileName: string;
+  score?: number | null;
 }
 
 class ApiError extends Error {
@@ -174,12 +196,15 @@ export function mapOffre(apiOffre: ApiOffre): Job {
     requirements: apiOffre.exigence,
     responsibilities: apiOffre.exigence,
     createdAt: apiOffre.date_publication,
+    candidaturesCount: apiOffre._count?.candidatures,
+    statut: apiOffre.statut,
   };
 }
 
 // Mapping des statuts backend vers frontend
 const STATUS_MAPPING: Record<string, Application['status']> = {
   'EN_ATTENTE': 'PENDING',
+  'EN_EXAMEN': 'IN_REVIEW',
   'ACCEPTEE': 'ACCEPTED',
   'REJETEE': 'REJECTED',
   'ENTRETIEN': 'INTERVIEW',
@@ -187,10 +212,10 @@ const STATUS_MAPPING: Record<string, Application['status']> = {
 
 const STATUS_REVERSE_MAPPING: Record<Application['status'], string> = {
   'PENDING': 'EN_ATTENTE',
+  'IN_REVIEW': 'EN_EXAMEN',
   'ACCEPTED': 'ACCEPTEE',
   'REJECTED': 'REJETEE',
   'INTERVIEW': 'ENTRETIEN',
-  'IN_REVIEW': 'EN_ATTENTE', // Fallback
 };
 
 // Fonction de mapping : transforme une candidature backend vers format frontend
@@ -207,6 +232,7 @@ export function mapCandidature(apiCandidature: ApiCandidature): Application {
     telephone: apiCandidature.utilisateur?.telephone || '',
     coverLetter: '', // Non disponible en base pour l'instant
     cvFileName: '', // Non disponible en base pour l'instant
+    score: apiCandidature.score,
   };
 }
 
@@ -242,8 +268,70 @@ export const api = {
   me: () =>
     request<{ user: User }>('/api/auth/me'),
 
+  updateProfile: (data: {
+    nom?: string;
+    prenom?: string;
+    telephone?: string;
+    quartier?: string;
+    password?: string;
+    sexe?: string;
+    ville?: string;
+    annees_experience?: number | null;
+    niveau_etude?: string;
+    domaine_etudes?: string;
+    competences?: string;
+  }) =>
+    request<{ user: User }>('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
   rhStats: () =>
     request<RhStats>('/api/rh/stats'),
+
+  getSuperviseurs: () =>
+    request<Array<{ id: number; nom: string; prenom: string; email: string }>>('/api/rh/superviseurs'),
+
+  getAdminStats: () =>
+    request<{
+      totaux: { utilisateurs: number; offres: number; offresPubliees: number; candidatures: number };
+      utilisateursParRole: Array<{ role: string; count: number }>;
+      candidaturesParStatut: Array<{ statut: string; count: number }>;
+      offresParDepartement: Array<{ departement: string; count: number }>;
+    }>('/api/admin/stats'),
+
+  // Gestion des utilisateurs (Admin)
+  getUsers: () =>
+    request<User[]>('/api/admin/users'),
+
+  createRhAccount: (data: { nom: string; prenom?: string; email: string; telephone?: string; quartier?: string; password: string }) =>
+    request<{ user: User }>('/api/admin/users/rh', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  createSuperviseurAccount: (data: { nom: string; prenom?: string; email: string; telephone?: string; quartier?: string; password: string }) =>
+    request<{ user: User }>('/api/admin/users/superviseur', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  createAdminAccount: (data: { nom: string; prenom?: string; email: string; telephone?: string; quartier?: string; password: string }) =>
+    request<{ user: User }>('/api/admin/users/admin', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  toggleUserStatus: (id: number, actif: boolean) =>
+    request<{ user: User }>(`/api/admin/users/${id}/statut`, {
+      method: 'PUT',
+      body: JSON.stringify({ actif }),
+    }),
+
+  deleteUser: (id: number) =>
+    request<{ message: string }>(`/api/admin/users/${id}`, {
+      method: 'DELETE',
+    }),
 
   rhApplications: () =>
     request<
@@ -257,20 +345,13 @@ export const api = {
     >('/api/candidatures'),
 
   rhOffers: () =>
-    request<
-      Array<{
-        id: number;
-        titre: string;
-        localisation: string;
-        type: string;
-        statut: string;
-        date_publication: string;
-        _count: { candidatures: number };
-      }>
-    >('/api/offres/rh/toutes'),
+    request<ApiOffre[]>('/api/offres/rh/toutes'),
 
   getOffres: () =>
     request<ApiOffre[]>('/api/offres'),
+
+  getDepartements: () =>
+    request<Array<{ id: number; nom: string; description: string }>>('/api/departements'),
 
   getOffreById: (id: number) =>
     request<ApiOffre>(`/api/offres/${id}`),
@@ -295,6 +376,9 @@ export const api = {
   getApplicationById: (id: number) =>
     request<ApiCandidature>(`/api/candidatures/${id}`),
 
+  getApplicationHistorique: (id: number) =>
+    request<HistoriqueStatutEntry[]>(`/api/candidatures/${id}/historique`),
+
   updateApplicationStatus: (id: number, statut: string) =>
     request<ApiCandidature>(`/api/candidatures/${id}/statut`, {
       method: 'PUT',
@@ -315,6 +399,7 @@ export const api = {
     date_limite?: string;
     id_departement: number;
     exigences_fichier?: string;
+    competences?: string;
   }) =>
     request<ApiOffre>('/api/offres', {
       method: 'POST',
@@ -329,6 +414,7 @@ export const api = {
     date_limite?: string;
     id_departement?: number;
     exigences_fichier?: string;
+    competences?: string;
   }) =>
     request<ApiOffre>(`/api/offres/${id}`, {
       method: 'PUT',
@@ -368,6 +454,11 @@ export const api = {
       method: 'GET',
     }),
 
+  getMyEntretiens: () =>
+    request<any[]>('/api/entretiens/mes', {
+      method: 'GET',
+    }),
+
   getEntretienById: (id: number) =>
     request<any>(`/api/entretiens/${id}`, {
       method: 'GET',
@@ -393,14 +484,48 @@ export const api = {
       method: 'DELETE',
     }),
 
+  // Emplois (affectations stage/CDI/CDD)
+  createEmploi: (data: {
+    can_id: number;
+    id_departement: number;
+    date_debut: string;
+    date_fin: string;
+    sujet: string;
+    lieu: string;
+    utilisateursup_id?: number;
+  }) =>
+    request<any>('/api/emplois', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getEmplois: () =>
+    request<any[]>('/api/emplois'),
+
+  getEmploisAEvaluer: () =>
+    request<any[]>('/api/emplois/a-evaluer'),
+
+  // Évaluations
+  getEvaluations: () =>
+    request<any[]>('/api/evaluations'),
+
+  getEvaluationById: (id: number) =>
+    request<any>(`/api/evaluations/${id}`),
+
+  createEvaluation: (data: { id_emploi: number; note?: number; fichier_rapport: string; statut: boolean }) =>
+    request<any>('/api/evaluations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   // Fichiers
-  uploadFile: (file: File, id_candidature: number, libelle?: string) => {
+  uploadFile: (file: File, id_candidature?: number, libelle?: string) => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('id_candidature', id_candidature.toString());
+    if (id_candidature) formData.append('id_candidature', id_candidature.toString());
     if (libelle) formData.append('libelle', libelle);
 
-    return request<{ id: number; libelle: string; chemin: string; extension: string; id_candidature: number }>('/api/files/upload', {
+    return request<{ id: number; libelle: string; chemin: string; extension: string; id_candidature: number | null }>('/api/files/upload', {
       method: 'POST',
       body: formData,
     });
@@ -411,9 +536,33 @@ export const api = {
       method: 'GET',
     }),
 
+  getMyFiles: () =>
+    request<{ id: number; libelle: string; chemin: string; extension: string }[]>('/api/files/mes'),
+
   deleteFile: (id: number) =>
     request<{ message: string }>(`/api/files/${id}`, {
       method: 'DELETE',
+    }),
+
+  // Favoris
+  getFavoris: () =>
+    request<Array<{ id: number; id_offre: number; offre: ApiOffre }>>('/api/favoris'),
+
+  addFavori: (id_offre: number) =>
+    request<{ id: number; id_offre: number }>('/api/favoris', {
+      method: 'POST',
+      body: JSON.stringify({ id_offre }),
+    }),
+
+  removeFavori: (id_offre: number) =>
+    request<{ message: string }>(`/api/favoris/${id_offre}`, {
+      method: 'DELETE',
+    }),
+
+  syncFavoris: (id_offres: number[]) =>
+    request<{ message: string }>('/api/favoris/sync', {
+      method: 'POST',
+      body: JSON.stringify({ id_offres }),
     }),
 
   // Notifications
@@ -436,6 +585,21 @@ export const api = {
     request<{ message: string }>('/api/notifications/tout-lu', {
       method: 'PUT',
     }),
+
+  sendNotification: (data: { id_utilisateur: number; titre: string; contenu: string }) =>
+    request<any>('/api/notifications', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getSentNotifications: () =>
+    request<Array<{
+      id: number;
+      titre: string;
+      contenu: string;
+      date_envoi: string;
+      utilisateur: { id: number; nom: string; prenom: string };
+    }>>('/api/notifications/envoyees'),
 };
 
 export { ApiError };

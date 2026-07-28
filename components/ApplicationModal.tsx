@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, X, User, Briefcase, FileText, Link2, Upload, XCircle } from 'lucide-react';
+import { ChevronDown, X, User, Briefcase, FileText, Upload, XCircle } from 'lucide-react';
 import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 const COLORS = {
   midnight: '#1e3a8a',
@@ -52,9 +53,11 @@ function SectionCard({
 export default function ApplicationModal({
   isOpen,
   onClose,
+  jobId,
   jobTitle,
   userEmail,
 }: ApplicationModalProps) {
+  const { user, updateUser } = useAuth();
   const [nom, setNom] = useState('');
   const [prenoms, setPrenoms] = useState('');
   const [email, setEmail] = useState(userEmail);
@@ -66,16 +69,25 @@ export default function ApplicationModal({
   const [niveauEtude, setNiveauEtude] = useState('');
   const [domaineEtudes, setDomaineEtudes] = useState('');
   const [villeResidence, setVilleResidence] = useState('');
-  const [linkedin, setLinkedin] = useState('');
-  const [portfolio, setPortfolio] = useState('');
+  const [competences, setCompetences] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Pré-remplit le formulaire avec les infos déjà connues du profil à chaque ouverture
   useEffect(() => {
     if (isOpen) {
       setEmail(userEmail);
+      setNom(user?.nom || '');
+      setPrenoms(user?.prenom || '');
+      setTelephone(user?.telephone || '');
+      setSexe(user?.sexe || '');
+      setVilleResidence(user?.ville || '');
+      setAnneesExperience(user?.annees_experience != null ? String(user.annees_experience) : '');
+      setNiveauEtude(user?.niveau_etude || '');
+      setDomaineEtudes(user?.domaine_etudes || '');
+      setCompetences(user?.competences || '');
     }
-  }, [isOpen, userEmail]);
+  }, [isOpen, userEmail, user]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -154,22 +166,36 @@ export default function ApplicationModal({
 
     setIsSubmitting(true);
     try {
-      // 1. Créer la candidature
+      // 1. Sauvegarder les infos personnelles sur le profil du candidat
+      const profileResponse = await api.updateProfile({
+        nom,
+        prenom: prenoms,
+        telephone,
+        sexe,
+        ville: villeResidence,
+        annees_experience: anneesExperience ? parseInt(anneesExperience) : null,
+        niveau_etude: niveauEtude,
+        domaine_etudes: domaineEtudes,
+        competences,
+      });
+      updateUser(profileResponse.user);
+
+      // 2. Créer la candidature
       const candidature = await api.postuler({
         id_offre: Number(jobId),
         lettre_motivation: '',
       });
-      
-      // 2. Uploader le CV si présent
+
+      // 3. Uploader le CV si présent
       if (cvFile) {
         await api.uploadFile(cvFile, candidature.id, 'CV');
       }
-      
-      // 3. Uploader la lettre de motivation si présente
+
+      // 4. Uploader la lettre de motivation si présente
       if (lettreFile) {
         await api.uploadFile(lettreFile, candidature.id, 'Lettre de motivation');
       }
-      
+
       // Succès : fermer la modale
       onClose();
       // Optionnel : rafraîchir la liste des candidatures ou afficher un message de succès
@@ -410,6 +436,22 @@ export default function ApplicationModal({
                 {errors.domaineEtudes && <p className="mt-1 text-xs text-red-600">{errors.domaineEtudes}</p>}
               </div>
             </div>
+            <div className="mt-5">
+              <label htmlFor="competences" className={labelClass}>
+                Compétences
+              </label>
+              <input
+                id="competences"
+                type="text"
+                value={competences}
+                onChange={(e) => setCompetences(e.target.value)}
+                placeholder="Ex: React, Node.js, SQL"
+                className={inputClass}
+              />
+              <p className="mt-1.5 text-xs text-gray-400">
+                Séparées par des virgules — utilisées pour calculer ta compatibilité avec cette offre.
+              </p>
+            </div>
           </SectionCard>
 
           {/* SECTION 3 — Documents de candidature */}
@@ -493,43 +535,6 @@ export default function ApplicationModal({
                     />
                   </label>
                 )}
-              </div>
-            </div>
-          </SectionCard>
-
-          {/* SECTION 4 — Présence en ligne */}
-          <SectionCard icon={Link2} title="Présence en ligne">
-            <div className="space-y-5">
-              <p className="text-sm text-gray-500">
-                Ces informations sont optionnelles mais recommandées.
-              </p>
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div>
-                  <label htmlFor="linkedin" className={labelClass}>
-                    Profil LinkedIn
-                  </label>
-                  <input
-                    id="linkedin"
-                    type="url"
-                    value={linkedin}
-                    onChange={(e) => setLinkedin(e.target.value)}
-                    placeholder="https://linkedin.com/in/username"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="portfolio" className={labelClass}>
-                    Portfolio / GitHub
-                  </label>
-                  <input
-                    id="portfolio"
-                    type="url"
-                    value={portfolio}
-                    onChange={(e) => setPortfolio(e.target.value)}
-                    placeholder="https://github.com/username"
-                    className={inputClass}
-                  />
-                </div>
               </div>
             </div>
           </SectionCard>

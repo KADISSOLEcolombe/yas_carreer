@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, Briefcase, Calendar, Bell, User, Search, LogOut, X } from 'lucide-react';
+import { LayoutDashboard, Briefcase, Calendar, Bell, User, Search, LogOut, X, Heart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 
@@ -10,11 +10,12 @@ const COLORS = {
   midnight: '#1e3a8a',
 };
 
-export type CandidateTab = 'apercu' | 'candidatures' | 'entretiens' | 'notifications' | 'profil';
+export type CandidateTab = 'apercu' | 'candidatures' | 'favoris' | 'entretiens' | 'notifications' | 'profil';
 
 export const CANDIDATE_TABS: { key: CandidateTab; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'apercu', label: 'Aperçu', icon: LayoutDashboard },
   { key: 'candidatures', label: 'Mes candidatures', icon: Briefcase },
+  { key: 'favoris', label: 'Mes favoris', icon: Heart },
   { key: 'entretiens', label: 'Mes entretiens', icon: Calendar },
   { key: 'notifications', label: 'Notifications', icon: Bell },
   { key: 'profil', label: 'Mon profil', icon: User },

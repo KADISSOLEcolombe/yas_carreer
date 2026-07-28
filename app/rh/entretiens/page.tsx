@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Calendar, Plus, X } from 'lucide-react';
 import RhDashboardHeader from '../../../components/rh/RhDashboardHeader';
-import { api } from '../../../lib/api';
+import { api, type ApiCandidature } from '../../../lib/api';
 
 const COLORS = {
   midnight: '#1e3a8a',
@@ -72,7 +72,7 @@ const STATUS_BADGE: Record<EntretienStatus, { bg: string; text: string; label: s
   ANNULE: { bg: '#FEE2E2', text: '#DC2626', label: 'Annulé' },
 };
 
-const ICON_STYLE: Record<EntretienStatus, { bg: string; color: string }> = {
+const ICON_STYLE: Record<string, { bg: string; color: string }> = {
   PLANIFIE: { bg: '#E2E8F0', color: COLORS.midnight },
   TERMINE: { bg: '#D1FAE5', color: '#065F46' },
   ANNULE: { bg: '#FEE2E2', color: '#DC2626' },
@@ -82,13 +82,18 @@ const EMPTY_FORM = {
   candidatId: '',
   date: '',
   heure: '',
-  duree: '1h',
+  duree: '60',
   type: 'presentiel' as EntretienType,
-  avec: 'Marie Dupont',
+  plateforme: 'Jitsi Meet',
   notes: '',
   lienVisio: '',
-  adresse: 'Bureau YAS Togo, Lomé',
 };
+
+// Génère un lien de visioconférence Jitsi Meet (gratuit, aucun compte requis)
+function genererLienJitsi(): string {
+  const suffixe = Math.random().toString(36).slice(2, 8);
+  return `https://meet.jit.si/YASTogo-Entretien-${Date.now()}-${suffixe}`;
+}
 
 function mapApiEntretien(apiEntretien: ApiEntretien): Entretien {
   const dateObj = new Date(apiEntretien.date);
@@ -114,16 +119,16 @@ function mapApiEntretien(apiEntretien: ApiEntretien): Entretien {
 }
 
 function TypeBadge({ type }: { type: EntretienType }) {
-  const style = TYPE_BADGE[type];
+  const style = TYPE_BADGE[type] || { bg: '#E2E8F0', text: '#4B5563' };
   return (
     <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: style.bg, color: style.text }}>
-      {type === 'presentiel' ? 'Présentiel' : 'Visio'}
+      {type === 'presentiel' ? 'Présentiel' : type === 'visio' ? 'Visio' : type || 'Inconnu'}
     </span>
   );
 }
 
 function StatusBadge({ statut }: { statut: EntretienStatus }) {
-  const style = STATUS_BADGE[statut];
+  const style = STATUS_BADGE[statut] || { bg: '#E2E8F0', text: '#4B5563', label: statut || 'Inconnu' };
   return (
     <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: style.bg, color: style.text }}>
       {style.label}
@@ -133,7 +138,7 @@ function StatusBadge({ statut }: { statut: EntretienStatus }) {
 
 export default function RHEntretiensPage() {
   const [entretiens, setEntretiens] = useState<Entretien[]>([]);
-  const [apiEntretiens, setApiEntretiens] = useState<ApiEntretien[]>([]);
+  const [candidatures, setCandidatures] = useState<ApiCandidature[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -146,7 +151,6 @@ export default function RHEntretiensPage() {
       setError(null);
       try {
         const apiData = await api.getEntretiens();
-        setApiEntretiens(apiData);
         const mappedData = apiData.map(mapApiEntretien);
         setEntretiens(mappedData);
       } catch (err: any) {
@@ -157,7 +161,17 @@ export default function RHEntretiensPage() {
       }
     };
 
+    const loadCandidatures = async () => {
+      try {
+        const data = await api.getAllApplications();
+        setCandidatures(data);
+      } catch (err) {
+        console.error('Erreur lors du chargement des candidatures:', err);
+      }
+    };
+
     loadEntretiens();
+    loadCandidatures();
   }, []);
 
   const handleOpenModal = () => {
@@ -182,18 +196,17 @@ export default function RHEntretiensPage() {
         date: dateTime.toISOString(),
         type: form.type,
         statut: 'PLANIFIE',
-        commentaire: form.notes || null,
+        commentaire: form.notes || undefined,
         id_candidature: Number(form.candidatId),
-        lien_meeting: form.type === 'visio' ? form.lienVisio : null,
-        plateforme: form.type === 'visio' ? 'Zoom' : null,
-        duree: form.type === 'visio' ? parseInt(form.duree) : null,
+        lien_meeting: form.type === 'visio' ? form.lienVisio : undefined,
+        plateforme: form.type === 'visio' ? form.plateforme : undefined,
+        duree: form.type === 'visio' ? parseInt(form.duree) : undefined,
       };
 
       await api.createEntretien(data);
       
       // Recharger la liste
       const apiData = await api.getEntretiens();
-      setApiEntretiens(apiData);
       const mappedData = apiData.map(mapApiEntretien);
       setEntretiens(mappedData);
       
@@ -235,7 +248,7 @@ export default function RHEntretiensPage() {
           <p className="text-center text-gray-500 py-12">Aucun entretien planifié</p>
         ) : (
           entretiens.map((entretien) => {
-            const iconStyle = ICON_STYLE[entretien.statut];
+            const iconStyle = ICON_STYLE[entretien.statut] || { bg: '#E2E8F0', color: COLORS.midnight };
             return (
               <Link
                 key={entretien.id}
@@ -289,12 +302,12 @@ export default function RHEntretiensPage() {
                   required
                   value={form.candidatId}
                   onChange={(e) => setForm({ ...form, candidatId: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                 >
                   <option value="">Sélectionner une candidature</option>
-                  {apiEntretiens.map((entretien) => (
-                    <option key={entretien.candidature.id} value={entretien.candidature.id}>
-                      {entretien.candidature.utilisateur.prenom} {entretien.candidature.utilisateur.nom} - {entretien.candidature.offre.titre}
+                  {candidatures.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.utilisateur?.prenom} {c.utilisateur?.nom} - {c.offre?.titre}
                     </option>
                   ))}
                 </select>
@@ -308,7 +321,7 @@ export default function RHEntretiensPage() {
                     type="date"
                     value={form.date}
                     onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -318,7 +331,7 @@ export default function RHEntretiensPage() {
                     type="time"
                     value={form.heure}
                     onChange={(e) => setForm({ ...form, heure: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                   />
                 </div>
               </div>
@@ -329,7 +342,7 @@ export default function RHEntretiensPage() {
                   <select
                     value={form.duree}
                     onChange={(e) => setForm({ ...form, duree: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                   >
                     <option value="30">30 minutes</option>
                     <option value="45">45 minutes</option>
@@ -342,8 +355,16 @@ export default function RHEntretiensPage() {
                   <label className="mb-2 block text-sm font-medium text-gray-700">Type d'entretien</label>
                   <select
                     value={form.type}
-                    onChange={(e) => setForm({ ...form, type: e.target.value as EntretienType })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                    onChange={(e) => {
+                      const nouveauType = e.target.value as EntretienType;
+                      // Génère automatiquement un lien Jitsi quand on passe en visio (si aucun lien n'est déjà saisi)
+                      if (nouveauType === 'visio' && !form.lienVisio) {
+                        setForm({ ...form, type: nouveauType, lienVisio: genererLienJitsi(), plateforme: 'Jitsi Meet' });
+                      } else {
+                        setForm({ ...form, type: nouveauType });
+                      }
+                    }}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                   >
                     <option value="presentiel">Présentiel</option>
                     <option value="visio">Visio</option>
@@ -352,15 +373,44 @@ export default function RHEntretiensPage() {
               </div>
 
               {form.type === 'visio' && (
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Lien de visioconférence *</label>
-                  <input
-                    required
-                    value={form.lienVisio}
-                    onChange={(e) => setForm({ ...form, lienVisio: e.target.value })}
-                    placeholder="Ex: https://meet.google.com/abc-defg-hij"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
-                  />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Plateforme</label>
+                    <select
+                      value={form.plateforme}
+                      onChange={(e) => setForm({ ...form, plateforme: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                    >
+                      <option value="Jitsi Meet">Jitsi Meet (généré automatiquement)</option>
+                      <option value="Google Meet">Google Meet</option>
+                      <option value="Zoom">Zoom</option>
+                      <option value="Microsoft Teams">Microsoft Teams</option>
+                      <option value="Autre">Autre</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Lien de visioconférence *</label>
+                    <div className="flex gap-2">
+                      <input
+                        required
+                        value={form.lienVisio}
+                        onChange={(e) => setForm({ ...form, lienVisio: e.target.value })}
+                        placeholder="Ex: https://meet.google.com/abc-defg-hij"
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, lienVisio: genererLienJitsi(), plateforme: 'Jitsi Meet' })}
+                        title="Générer un nouveau lien Jitsi Meet"
+                        className="shrink-0 rounded-lg border border-gray-300 px-3 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+                      >
+                        ↻
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Lien généré automatiquement (Jitsi Meet, gratuit, sans compte). Remplaçable par un lien Zoom/Google Meet si tu préfères.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -371,7 +421,7 @@ export default function RHEntretiensPage() {
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   placeholder="Notes sur l'entretien..."
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
                 />
               </div>
 

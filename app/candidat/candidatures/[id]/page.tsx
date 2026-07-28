@@ -4,7 +4,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Briefcase, Calendar, FileText, Clock, MapPin, Building2, XCircle } from 'lucide-react';
-import { api, mapCandidature, mapStatusToFrontend, type Application } from '../../../../lib/api';
+import { api, mapCandidature, type Application, type HistoriqueStatutEntry } from '../../../../lib/api';
+
+const STATUT_LABELS: Record<string, string> = {
+  EN_ATTENTE: 'En attente',
+  ACCEPTEE: 'Acceptée',
+  REJETEE: 'Refusée',
+};
 
 const COLORS = {
   midnight: '#1e3a8a',
@@ -17,69 +23,6 @@ const STATUS_STYLES: Record<Application['status'], { bg: string; text: string; l
   INTERVIEW: { bg: '#EDE9FE', text: '#6D28D9', label: 'Entretien' },
   ACCEPTED: { bg: '#D1FAE5', text: '#065F46', label: 'Acceptée' },
   REJECTED: { bg: '#FEE2E2', text: '#DC2626', label: 'Refusée' },
-};
-
-// TODO : à remplacer par les vraies données quand le backend sera connecté
-const MOCK_CANDIDATURES: Record<number, {
-  id: number;
-  poste: string;
-  date: string;
-  status: CandidatureStatus;
-  type: ContractType;
-  entreprise: string;
-  departement?: string;
-  description?: string;
-  cvFile?: string;
-  lettreFile?: string;
-  entretien?: {
-    date: string;
-    heure: string;
-    avec: string;
-    type: 'Présentiel' | 'Visio';
-  };
-}> = {
-  1: {
-    id: 1,
-    poste: 'Développeur Full Stack',
-    date: '14/01/2025',
-    status: 'ENTRETIEN',
-    type: 'CDI',
-    entreprise: 'YAS Togo',
-    departement: 'Informatique',
-    description: 'Nous recherchons un développeur Full Stack expérimenté pour rejoindre notre équipe technique. Vous serez responsable de la conception et du développement de nos applications web.',
-    cvFile: 'Curriculum_Vitae.pdf',
-    lettreFile: 'Lettre_Motivation.pdf',
-    entretien: {
-      date: '21/01/2025',
-      heure: '10:00',
-      avec: 'Marie Dupont',
-      type: 'Présentiel',
-    },
-  },
-  2: {
-    id: 2,
-    poste: 'Stage – Analyste Business',
-    date: '12/01/2025',
-    status: 'EN_COURS',
-    type: 'Stage',
-    entreprise: 'Digital Solutions',
-    departement: 'Marketing',
-    description: 'Stage en analyse business pour participer à l\'étude de marché et à l\'analyse des données commerciales.',
-    cvFile: 'Curriculum_Vitae.pdf',
-    lettreFile: null,
-  },
-  3: {
-    id: 3,
-    poste: 'Chargé(e) de Communication',
-    date: '13/01/2025',
-    status: 'EN_ATTENTE',
-    type: 'CDI',
-    entreprise: 'Tech Africa',
-    departement: 'Communication',
-    description: 'Chargé de communication pour gérer les relations presse et les campagnes de communication.',
-    cvFile: 'Curriculum_Vitae.pdf',
-    lettreFile: 'Lettre_Motivation.pdf',
-  },
 };
 
 function StatusBadge({ status }: { status: Application['status'] }) {
@@ -205,19 +148,25 @@ export default function CandidatureDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [application, setApplication] = useState<Application | null>(null);
+  const [historique, setHistorique] = useState<HistoriqueStatutEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadApplication = async () => {
       if (!id) return;
-      
+
       setIsLoading(true);
       setError(null);
       try {
         const apiCandidature = await api.getApplicationById(Number(id));
         const mappedApplication = mapCandidature(apiCandidature);
         setApplication(mappedApplication);
+        try {
+          setHistorique(await api.getApplicationHistorique(Number(id)));
+        } catch (histErr) {
+          console.error('Erreur lors du chargement de l\'historique:', histErr);
+        }
       } catch (err: any) {
         console.error('Erreur lors du chargement de la candidature:', err);
         if (err.status === 404) {
@@ -319,6 +268,30 @@ export default function CandidatureDetailPage() {
             )}
           </div>
         </SectionCard>
+
+        {historique.length > 0 && (
+          <div className="mt-6">
+            <SectionCard icon={Clock} title="Historique des changements">
+              <ol className="space-y-4">
+                {historique.map((entry) => (
+                  <li key={entry.id} className="flex items-start gap-3">
+                    <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLORS.yellow }} aria-hidden="true" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {entry.ancien_statut
+                          ? `${STATUT_LABELS[entry.ancien_statut] ?? entry.ancien_statut} → ${STATUT_LABELS[entry.nouveau_statut] ?? entry.nouveau_statut}`
+                          : `Candidature créée (${STATUT_LABELS[entry.nouveau_statut] ?? entry.nouveau_statut})`}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(entry.date_changement).toLocaleString('fr-FR')}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </SectionCard>
+          </div>
+        )}
       </main>
     </div>
   );
