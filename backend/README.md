@@ -1,156 +1,221 @@
-# YAS Career Backend
+<div align="center">
 
-Backend API pour l'application YAS Career avec Express, Prisma et PostgreSQL.
+  <h1>API Starter Kit</h1>
 
-## Configuration
+  <p>
+    <strong>A batteries-included AdonisJS starter kit for building modern, type-safe APIs.</strong>
+  </p>
 
-### Prérequis
-- Node.js (v18 ou supérieur)
-- PostgreSQL (v12 ou supérieur)
+  <p>
+    Built for developers who want a production-ready standalone API.
+  </p>
 
-### Installation
+  <br>
 
-1. Installer les dépendances :
+<a href="#-whats-in-the-box">Features</a>
+<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+<a href="#-quick-start">Quick Start</a>
+<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+<a href="https://adonisjs.com">Documentation</a>
+
+  <br>
+  <br>
+
+</div>
+
+---
+
+## ✨ What's in the Box
+
+This starter kit is designed to help you build production-ready APIs with AdonisJS. It provides a solid foundation with authentication, type-safe routes, and everything you need to build modern APIs that work with any frontend framework.
+
+### 🎯 Core Features
+
+- **🔐 Dual Authentication** - API tokens (default) and session-based authentication pre-configured
+- **🔄 RESTful API** - Clean API structure with versioning (`/api/v1`)
+- **🏥 Health Check** - Built-in health check endpoint for monitoring
+- **✅ Form Validation** - Powered by VineJS with automatic error handling
+- **🛡️ Security First** - CORS, Shield middleware, and secure authentication
+- **🔒 Type Safety** - End-to-end TypeScript with Tuyau for type-safe API calls
+- **🌐 CORS Ready** - Pre-configured for cross-origin requests
+
+### 🔧 Tech Stack
+
+<table>
+  <tr>
+    <td><strong>Backend</strong></td>
+    <td>
+      <a href="https://adonisjs.com">AdonisJS 7.x</a> - Full-featured Node.js framework
+    </td>
+  </tr>
+  <tr>
+    <td><strong>Database</strong></td>
+    <td>
+      <a href="https://lucid.adonisjs.com">Lucid ORM</a> - SQL ORM with migrations (SQLite, PostgreSQL, MySQL, MSSQL)
+    </td>
+  </tr>
+  <tr>
+    <td><strong>Auth</strong></td>
+    <td>
+      API tokens (default) and session-based authentication
+    </td>
+  </tr>
+  <tr>
+    <td><strong>Validation</strong></td>
+    <td>
+      <a href="https://vinejs.dev">VineJS</a> - Type-safe schema validation
+    </td>
+  </tr>
+  <tr>
+    <td><strong>Type Safety</strong></td>
+    <td>
+      <a href="https://tuyau.dev">Tuyau</a> - End-to-end type safety for API calls
+    </td>
+  </tr>
+  <tr>
+    <td><strong>Testing</strong></td>
+    <td>
+      <a href="https://japa.dev">Japa</a> - Delightful testing framework
+    </td>
+  </tr>
+  <tr>
+    <td><strong>TypeScript</strong></td>
+    <td>
+      Full TypeScript support with strict mode enabled
+    </td>
+  </tr>
+</table>
+
+---
+
+## 🚀 Quick Start
+
+### From the Project Root
+
 ```bash
+# Install dependencies
 npm install
-```
 
-2. Configurer les variables d'environnement :
-```bash
+# Copy environment variables
 cp .env.example .env
-```
 
-Éditez le fichier `.env` avec vos configurations :
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/yas_career?schema=public"
-PORT=3001
-FRONTEND_URL=http://localhost:3000
-JWT_SECRET=your-secret-key-change-this-in-production
-NODE_ENV=development
-```
+# Generate application key
+node ace generate:key
 
-3. Générer le client Prisma :
-```bash
-npm run db:generate
-```
+# Run database migrations
+node ace migration:run
 
-4. Exécuter les migrations :
-```bash
-npm run db:migrate
-```
-
-5. Peupler la base de données :
-```bash
-npm run db:seed
-```
-
-### Démarrage
-
-En mode développement :
-```bash
+# Run the development server with hot reload
 npm run dev
 ```
 
-En production :
+### Useful Commands
+
 ```bash
+# Run tests
+npm run test
+
+# Type check
+npm run typecheck
+
+# Lint your code
+npm run lint
+
+# Build for production
+npm run build
+
+# Start production server
 npm start
 ```
 
-L'API sera accessible sur `http://localhost:3001`
+Your API will be running at `http://localhost:3333`
 
-## API Endpoints
+### Available Endpoints
 
-### Authentification (`/api/auth`)
-- `POST /api/auth/register` - Inscription candidat
-- `POST /api/auth/login` - Connexion
-- `GET /api/auth/me` - Obtenir le profil utilisateur (authentifié)
+- `POST /api/v1/auth/signup` - Create a new account
+- `POST /api/v1/auth/login` - Login and get access token
+- `POST /api/v1/auth/logout` - Logout (requires authentication)
+- `GET /api/v1/account/profile` - Get current user profile (requires authentication)
 
-### Offres d'emploi (`/api/offers`)
-- `GET /api/offers` - Lister toutes les offres actives (public)
-- `GET /api/offers/:id` - Obtenir une offre par ID (public)
-- `POST /api/offers` - Créer une offre (RH/Admin)
-- `PUT /api/offers/:id` - Modifier une offre (RH/Admin)
-- `DELETE /api/offers/:id` - Supprimer une offre (RH/Admin)
-- `GET /api/offers/admin/all` - Lister toutes les offres (incluant inactives) (RH/Admin)
+---
 
-### Candidatures (`/api/applications`)
-- `POST /api/applications` - Soumettre une candidature (Candidat)
-- `GET /api/applications/my` - Lister mes candidatures (Candidat)
-- `GET /api/applications` - Lister toutes les candidatures (RH/Admin)
-- `PUT /api/applications/:id/status` - Modifier le statut d'une candidature (RH/Admin)
-- `DELETE /api/applications/:id` - Supprimer une candidature (Candidat, propre candidature)
+## 📚 Learn More
 
-### RH (`/api/rh`)
-- `GET /api/rh/stats` - Statistiques RH (RH/Admin)
-- `GET /api/rh/applications` - Lister les candidatures (RH/Admin)
-- `GET /api/rh/offers` - Lister les offres (RH/Admin)
+<table>
+  <tr>
+    <td>
+      <a href="https://docs.adonisjs.com"><strong>📖 AdonisJS Docs</strong></a>
+      <br>
+      <span>Complete guide to AdonisJS</span>
+    </td>
+    <td>
+      <a href="https://tuyau.dev"><strong>🔒 Tuyau</strong></a>
+      <br>
+      <span>Type-safe API calls</span>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <a href="https://lucid.adonisjs.com"><strong>💾 Lucid ORM</strong></a>
+      <br>
+      <span>Database queries and relationships</span>
+    </td>
+    <td>
+      <a href="https://vinejs.dev"><strong>✅ VineJS</strong></a>
+      <br>
+      <span>Schema validation guide</span>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <a href="https://docs.adonisjs.com/guides/authentication/introduction"><strong>🔐 Authentication Guide</strong></a>
+      <br>
+      <span>Sessions and access tokens in AdonisJS</span>
+    </td>
+    <td>
+      <a href="https://docs.adonisjs.com/guides/security/cors"><strong>🌐 CORS Guide</strong></a>
+      <br>
+      <span>Configure CORS for your API</span>
+    </td>
+  </tr>
+</table>
 
-### Admin (`/api/admin`)
-- `GET /api/admin/dashboard` - Tableau de bord admin (Admin)
-- `GET /api/admin/users` - Lister tous les utilisateurs avec stats (Admin)
-- `PUT /api/admin/users/:id/role` - Modifier le rôle d'un utilisateur (Admin)
-- `PUT /api/admin/users/:id/status` - Activer/désactiver un compte (Admin)
-- `DELETE /api/admin/users/:id` - Supprimer un utilisateur (Admin)
+---
 
-## Comptes par défaut
+## 🎨 Philosophy
 
-Après le seed, les comptes suivants sont créés :
+This starter kit embraces the **API-first** approach to web development:
 
-### RH
-- Email : `rh@yastogo.tg`
-- Mot de passe : `rh123456`
-- Rôle : RECRUITER
+- **Framework Agnostic** - Use any frontend framework (React, Vue, Svelte, Angular, etc.)
+- **Type Safety Everywhere** - TypeScript across the stack with Tuyau for type-safe API calls
+- **Dual Authentication** - API tokens for cross-origin and sessions for same-domain apps
+- **Convention Over Configuration** - Sensible defaults, escape hatches when you need them
+- **Developer Experience** - Hot reload, great error messages, instant feedback
+- **Production Ready** - Security, validation, and testing built-in
 
-### Admin
-- Email : `admin@yastogo.tg`
-- Mot de passe : `admin123456`
-- Rôle : ADMIN
+### Authentication Strategies
 
-## Structure du projet
+This starter kit provides both authentication strategies:
 
-```
-backend/
-├── prisma/
-│   ├── schema.prisma          # Schéma de la base de données
-│   ├── seed.js                # Données initiales
-│   └── migrations/            # Migrations Prisma
-├── src/
-│   ├── index.js               # Point d'entrée
-│   ├── routes/                # Routes API
-│   │   ├── auth.js           # Authentification
-│   │   ├── offers.js         # Offres d'emploi
-│   │   ├── applications.js   # Candidatures
-│   │   ├── rh.js             # RH
-│   │   └── admin.js          # Admin
-│   ├── middleware/           # Middlewares
-│   │   └── auth.js           # Authentification JWT
-│   └── lib/                  # Utilitaires
-│       └── crypto.js         # Hashage et JWT
-├── .env.example              # Exemple de configuration
-└── package.json              # Dépendances
-```
+- **API Tokens (Default)** - Use when your API and frontend are on different domains. Stateless and perfect for mobile apps, SPAs, and third-party integrations.
+- **Session-based** - Use when your API and frontend share the same top-level domain. Traditional cookie-based authentication with CSRF protection.
 
-## Sécurité
+You can easily switch between strategies by changing the guard in your middleware configuration.
 
-- Les mots de passe sont hashés avec scrypt
-- Les tokens JWT expirent après 7 jours
-- Les routes sont protégées par rôle
-- Les comptes désactivés ne peuvent pas se connecter
-- CORS configuré pour le frontend
+---
 
-## Développement
+## 🤝 Contributing
 
-Pour générer un nouveau client Prisma après modification du schéma :
-```bash
-npm run db:generate
-```
+This starter kit is maintained by the AdonisJS team. Found a bug or have a suggestion? [Open an issue](https://github.com/adonisjs/api-starter-kit/issues) or submit a pull request!
 
-Pour créer une nouvelle migration :
-```bash
-npx prisma migrate dev --name migration_name
-```
+---
 
-Pour réinitialiser la base de données :
-```bash
-npm run db:setup
-```
+## 📄 License
+
+This starter kit is open-sourced software licensed under the [MIT license](LICENSE).
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ by the AdonisJS team</sub>
+</div>
