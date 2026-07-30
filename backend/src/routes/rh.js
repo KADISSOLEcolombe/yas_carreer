@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 // Statistiques du tableau de bord RH
-router.get('/stats', requirePermission('voir_statistique'), async (_req, res) => {
+router.get('/stats', requireRole('RH', 'ADMIN', 'SUPERVISEUR'), async (_req, res) => {
   try {
     const [offresCount, candidaturesCount, enAttenteCount, candidatsCount] = await Promise.all([
       prisma.offre.count(),
@@ -25,6 +25,21 @@ router.get('/stats', requirePermission('voir_statistique'), async (_req, res) =>
   } catch (error) {
     console.error('Stats error:', error);
     res.status(500).json({ error: 'Erreur lors du chargement des statistiques' });
+  }
+});
+
+// Liste des superviseurs (pour assigner une affectation)
+router.get('/superviseurs', requireRole('RH', 'ADMIN'), async (_req, res) => {
+  try {
+    const superviseurs = await prisma.utilisateur.findMany({
+      where: { type: 'Superviseur', supprime: false },
+      select: { id: true, nom: true, prenom: true, email: true },
+      orderBy: { nom: 'asc' },
+    });
+    res.json(superviseurs);
+  } catch (error) {
+    console.error('Get superviseurs error:', error);
+    res.status(500).json({ error: 'Erreur lors du chargement des superviseurs' });
   }
 });
 

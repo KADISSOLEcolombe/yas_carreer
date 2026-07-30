@@ -3,6 +3,28 @@ const prisma = require('../lib/prisma');
 const { requireAuth, requireRole, requirePermission } = require('../middleware/auth');
 const { creerNotification } = require('./notifications');
 
+// Passe une candidature au statut ENTRETIEN, sauf si elle est déjà décidée (acceptée/refusée)
+async function passerCandidatureEnEntretien(id_candidature, id_auteur) {
+  const candidature = await prisma.candidature.findUnique({ where: { id: id_candidature } });
+  if (!candidature || ['ACCEPTEE', 'REJETEE', 'ENTRETIEN'].includes(candidature.statut)) {
+    return;
+  }
+
+  await prisma.candidature.update({
+    where: { id: id_candidature },
+    data: { statut: 'ENTRETIEN' },
+  });
+
+  await prisma.historique_statut.create({
+    data: {
+      id_candidature,
+      ancien_statut: candidature.statut,
+      nouveau_statut: 'ENTRETIEN',
+      id_auteur,
+    },
+  });
+}
+
 const router = express.Router();
 
 router.use(requireAuth);
@@ -69,6 +91,9 @@ router.post('/', requirePermission('planifier_entretien'), async (req, res) => {
 
     const entretien = await prisma.entretien.create({ data, include: INCLUDE_FULL });
 
+    // Fait passer la candidature au statut ENTRETIEN (sauf si déjà acceptée/refusée)
+    await passerCandidatureEnEntretien(parseInt(id_candidature), parseInt(req.user.id));
+
     // Notifier le candidat de l'entretien planifié
     const dateEntretien = new Date(date).toLocaleDateString('fr-FR', {
       day: 'numeric',
@@ -104,6 +129,21 @@ router.get('/', requirePermission('consulter_entretien'), async (_req, res) => {
   } catch (error) {
     console.error('Get entretiens error:', error);
     res.status(500).json({ error: 'Erreur lors du chargement des entretiens' });
+  }
+});
+
+// GET /api/entretiens/mes — Entretiens assignés au superviseur connecté
+router.get('/mes', requirePermission('consulter_entretien'), async (req, res) => {
+  try {
+    const entretiens = await prisma.entretien.findMany({
+      where: { utilisateursup_id: parseInt(req.user.id), supprime: { not: true } },
+      include: INCLUDE_FULL,
+      orderBy: { date: 'desc' },
+    });
+    res.json(entretiens);
+  } catch (error) {
+    console.error('Get mes entretiens error:', error);
+    res.status(500).json({ error: 'Erreur lors du chargement de vos entretiens' });
   }
 });
 

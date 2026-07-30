@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../lib/prisma');
 const { requireAuth, requireRole, requirePermission } = require('../middleware/auth');
 const { creerNotification } = require('./notifications');
+const { calculerScore } = require('../lib/matching');
 
 const router = express.Router();
 
@@ -32,12 +33,20 @@ router.post('/', requireAuth, requirePermission('postuler'), async (req, res) =>
       return res.status(400).json({ error: 'Vous avez déjà postulé à cette offre' });
     }
 
+    const score = calculerScore({
+      competencesCandidat: req.user.competences,
+      competencesOffre: offre.competences,
+      villeCandidat: req.user.ville,
+      localisationOffre: offre.localisation,
+    });
+
     const candidature = await prisma.candidature.create({
       data: {
         id_offre: parseInt(id_offre),
         utilisateurcand_id: parseInt(req.user.id),
         statut: 'EN_ATTENTE',
         date_soumission: new Date(),
+        score,
         supprime: false,
       },
       include: {
@@ -47,9 +56,19 @@ router.post('/', requireAuth, requirePermission('postuler'), async (req, res) =>
       },
     });
 
+    // Trace la création dans l'historique (ancien_statut = null = première étape)
+    await prisma.historique_statut.create({
+      data: {
+        id_candidature: candidature.id,
+        ancien_statut: null,
+        nouveau_statut: 'EN_ATTENTE',
+        id_auteur: parseInt(req.user.id),
+      },
+    });
+
     // Notifier tous les RH de la nouvelle candidature
     const rhUsers = await prisma.utilisateur.findMany({
-      where: { role: 'RH', supprime: false },
+      where: { type: 'RH', supprime: false },
     });
 
     for (const rh of rhUsers) {
@@ -137,16 +156,51 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/candidatures/:id/historique — Historique des changements de statut (RH ou le candidat concerné)
+router.get('/:id/historique', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    const candidature = await prisma.candidature.findUnique({ where: { id } });
+    if (!candidature) {
+      return res.status(404).json({ error: 'Candidature non trouvée' });
+    }
+
+    const isOwner = candidature.utilisateurcand_id === parseInt(req.user.id);
+    const isRhOrAdmin = ['RH', 'ADMIN'].includes(req.user.role);
+
+    if (!isOwner && !isRhOrAdmin) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+
+    const historique = await prisma.historique_statut.findMany({
+      where: { id_candidature: id },
+      orderBy: { date_changement: 'asc' },
+    });
+
+    res.json(historique);
+  } catch (error) {
+    console.error('Get historique error:', error);
+    res.status(500).json({ error: "Erreur lors du chargement de l'historique" });
+  }
+});
+
 // PUT /api/candidatures/:id/statut — Changer le statut (RH uniquement)
 router.put('/:id/statut', requireAuth, requirePermission('changer_statut_candidature'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { statut, score } = req.body;
 
-    const valeursAutorisees = ['EN_ATTENTE', 'ACCEPTEE', 'REJETEE'];
+    const valeursAutorisees = ['EN_ATTENTE', 'EN_EXAMEN', 'ENTRETIEN', 'ACCEPTEE', 'REJETEE'];
     if (!valeursAutorisees.includes(statut)) {
-      return res.status(400).json({ error: 'Statut invalide. Valeurs : EN_ATTENTE, ACCEPTEE, REJETEE' });
+      return res.status(400).json({ error: 'Statut invalide. Valeurs : EN_ATTENTE, EN_EXAMEN, ENTRETIEN, ACCEPTEE, REJETEE' });
     }
+
+    const existante = await prisma.candidature.findUnique({ where: { id } });
+    if (!existante) {
+      return res.status(404).json({ error: 'Candidature non trouvée' });
+    }
+    const ancienStatut = existante.statut;
 
     const data = { statut };
     if (score !== undefined) data.score = parseInt(score);
@@ -160,6 +214,18 @@ router.put('/:id/statut', requireAuth, requirePermission('changer_statut_candida
       },
     });
 
+    // Trace la transition dans l'historique, seulement si le statut a réellement changé
+    if (ancienStatut !== statut) {
+      await prisma.historique_statut.create({
+        data: {
+          id_candidature: id,
+          ancien_statut: ancienStatut,
+          nouveau_statut: statut,
+          id_auteur: parseInt(req.user.id),
+        },
+      });
+    }
+
     let titreNotif;
     let contenuNotif;
     if (statut === 'ACCEPTEE') {
@@ -168,6 +234,12 @@ router.put('/:id/statut', requireAuth, requirePermission('changer_statut_candida
     } else if (statut === 'REJETEE') {
       titreNotif = 'Candidature non retenue';
       contenuNotif = `Nous vous informons que votre candidature pour l'offre "${candidature.offre.titre}" n'a pas été retenue cette fois-ci. Nous vous remercions pour votre intérêt et vous encourageons à postuler à d'autres offres.`;
+    } else if (statut === 'EN_EXAMEN') {
+      titreNotif = 'Candidature en cours d\'examen 🔍';
+      contenuNotif = `Votre candidature pour l'offre "${candidature.offre.titre}" est en cours d'examen par notre équipe.`;
+    } else if (statut === 'ENTRETIEN') {
+      titreNotif = 'Entretien planifié 📅';
+      contenuNotif = `Votre candidature pour l'offre "${candidature.offre.titre}" est passée à l'étape entretien.`;
     } else {
       titreNotif = 'Mise à jour de votre candidature';
       contenuNotif = `Le statut de votre candidature pour l'offre "${candidature.offre.titre}" a été mis à jour.`;
