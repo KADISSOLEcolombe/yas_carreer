@@ -5,6 +5,7 @@
 
 export const controllers = {
   AccessTokens: () => import('#controllers/access_tokens_controller'),
+  ActivityLogs: () => import('#controllers/activity_logs_controller'),
   Applications: () => import('#controllers/applications_controller'),
   Auth: () => import('#controllers/auth_controller'),
   Chatbot: () => import('#controllers/chatbot_controller'),
@@ -15,5 +16,4 @@ export const controllers = {
   Offers: () => import('#controllers/offers_controller'),
   Profile: () => import('#controllers/profile_controller'),
   Users: () => import('#controllers/users_controller'),
-  ActivityLogs: () => import('#controllers/activity_logs_controller'),
 }

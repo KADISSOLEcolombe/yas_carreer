@@ -8,6 +8,8 @@ type BrandLogoProps = {
   wordmarkClassName?: string;
   className?: string;
   priority?: boolean;
+  /** "light" is for overlaying on dark photos/backgrounds. Defaults to the usual dark-on-light look. */
+  variant?: "dark" | "light";
 };
 
 const SIZE = {
@@ -25,6 +27,7 @@ export function BrandLogo({
   wordmarkClassName,
   className,
   priority,
+  variant = "dark",
 }: BrandLogoProps) {
   const content = (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
@@ -45,10 +48,20 @@ export function BrandLogo({
       </span>
       {showWordmark && (
         <span className={cn("min-w-0 leading-tight", wordmarkClassName)}>
-          <span className="block truncate font-heading text-base font-bold tracking-tight text-yas-midnight sm:text-lg">
+          <span
+            className={cn(
+              "block truncate font-heading text-base font-bold tracking-tight sm:text-lg",
+              variant === "light" ? "text-white" : "text-yas-midnight"
+            )}
+          >
             YasCareer
           </span>
-          <span className="block text-[10px] font-medium uppercase tracking-[0.14em] text-yas-sky">
+          <span
+            className={cn(
+              "block text-[10px] font-medium uppercase tracking-[0.14em]",
+              variant === "light" ? "text-yas-yellow" : "text-yas-sky"
+            )}
+          >
             Yas Togo
           </span>
         </span>

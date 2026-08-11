@@ -34,7 +34,11 @@ export function SiteHeader() {
   if (
     pathname.startsWith("/rh") ||
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/candidat")
+    pathname.startsWith("/candidat") ||
+    pathname.startsWith("/superviseur") ||
+    pathname.startsWith("/a-propos") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register")
   ) {
     return null;
   }
@@ -59,7 +63,14 @@ export function SiteHeader() {
         className="text-sm font-medium text-foreground/80 transition-colors hover:text-yas-midnight"
         onClick={() => setOpen(false)}
       >
-        Offres
+        Nos offres
+      </Link>
+      <Link
+        href="/a-propos"
+        className="text-sm font-medium text-foreground/80 transition-colors hover:text-yas-midnight"
+        onClick={() => setOpen(false)}
+      >
+        À propos
       </Link>
       {dashboardPath && (
         <Link
@@ -123,11 +134,11 @@ export function SiteHeader() {
             </DropdownMenu>
           ) : (
             <>
-              <Button variant="ghost" asChild>
-                <Link href="/login">Connexion</Link>
+              <Button variant="outline" asChild className="border-yas-midnight text-yas-midnight hover:bg-yas-midnight/5 hover:text-yas-midnight">
+                <Link href="/login">Se connecter</Link>
               </Button>
-              <Button asChild>
-                <Link href="/offres">Voir les offres</Link>
+              <Button asChild className="bg-yas-yellow text-yas-midnight hover:bg-yas-yellow/90 font-semibold border-none">
+                <Link href="/register">Créer un compte</Link>
               </Button>
             </>
           )}
@@ -164,11 +175,16 @@ export function SiteHeader() {
                     variant="outline"
                     asChild
                     onClick={() => setOpen(false)}
+                    className="border-yas-midnight text-yas-midnight hover:bg-yas-midnight/5 hover:text-yas-midnight"
                   >
-                    <Link href="/login">Connexion</Link>
+                    <Link href="/login">Se connecter</Link>
                   </Button>
-                  <Button asChild onClick={() => setOpen(false)}>
-                    <Link href="/offres">Voir les offres</Link>
+                  <Button
+                    asChild
+                    onClick={() => setOpen(false)}
+                    className="bg-yas-yellow text-yas-midnight hover:bg-yas-yellow/90 font-semibold border-none"
+                  >
+                    <Link href="/register">Créer un compte</Link>
                   </Button>
                 </>
               )}

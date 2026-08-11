@@ -38,7 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ApiError, applicationsApi, interviewsApi } from "@/lib/api";
+import { ApiError, applicationsApi, interviewsApi, usersApi } from "@/lib/api";
 import { trackRhAction } from "@/lib/track-activity";
 import {
   INTERVIEW_MODE_LABELS,
@@ -105,8 +105,11 @@ export default function RhEntretiensPage() {
   const [selectedKey, setSelectedKey] = useState(todayKey);
 
   const [applicationId, setApplicationId] = useState("");
+  const [supervisorId, setSupervisorId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("30");
   const [mode, setMode] = useState<InterviewMode>("distanciel");
+  const [location, setLocation] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -118,6 +121,11 @@ export default function RhEntretiensPage() {
   const { data: applications } = useQuery({
     queryKey: ["applications", "rh", "all"],
     queryFn: () => applicationsApi.list(),
+  });
+
+  const { data: supervisors } = useQuery({
+    queryKey: ["users", "superviseur"],
+    queryFn: () => usersApi.list("superviseur"),
   });
 
   const eligibleApplications = applications?.filter(
@@ -171,9 +179,12 @@ export default function RhEntretiensPage() {
     mutationFn: () =>
       interviewsApi.create({
         applicationId: Number(applicationId),
+        supervisorId: supervisorId ? Number(supervisorId) : undefined,
         scheduledAt: new Date(scheduledAt).toISOString(),
+        durationMinutes: Number(durationMinutes) || 30,
         mode,
-        meetingLink: meetingLink || undefined,
+        location: mode === "presentiel" ? location || undefined : undefined,
+        meetingLink: mode === "distanciel" ? meetingLink || undefined : undefined,
         notes: notes || undefined,
       }),
     onSuccess: () => {
@@ -186,7 +197,10 @@ export default function RhEntretiensPage() {
       }
       setOpen(false);
       setApplicationId("");
+      setSupervisorId("");
       setScheduledAt("");
+      setDurationMinutes("30");
+      setLocation("");
       setMeetingLink("");
       setNotes("");
     },
@@ -271,17 +285,47 @@ export default function RhEntretiensPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="scheduledAt">Date et heure</Label>
-                  <Input
-                    id="scheduledAt"
-                    type="datetime-local"
-                    className="rounded-xl"
-                    value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
-                  />
+                  <Label>Superviseur (optionnel)</Label>
+                  <Select value={supervisorId} onValueChange={setSupervisorId}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Aucun superviseur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {supervisors?.map((s) => (
+                        <SelectItem key={s.id} value={String(s.id)}>
+                          {s.fullName || s.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="scheduledAt">Date et heure</Label>
+                    <Input
+                      id="scheduledAt"
+                      type="datetime-local"
+                      className="rounded-xl"
+                      value={scheduledAt}
+                      onChange={(e) => setScheduledAt(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="durationMinutes">Durée (minutes)</Label>
+                    <Input
+                      id="durationMinutes"
+                      type="number"
+                      min={5}
+                      max={480}
+                      step={5}
+                      className="rounded-xl"
+                      value={durationMinutes}
+                      onChange={(e) => setDurationMinutes(e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Mode</Label>
+                  <Label>Type d&apos;entretien</Label>
                   <Select
                     value={mode}
                     onValueChange={(v) => setMode(v as InterviewMode)}
@@ -290,21 +334,38 @@ export default function RhEntretiensPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="distanciel">Distanciel</SelectItem>
+                      <SelectItem value="distanciel">Visio</SelectItem>
                       <SelectItem value="presentiel">Présentiel</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="meetingLink">Lien visio (optionnel)</Label>
-                  <Input
-                    id="meetingLink"
-                    className="rounded-xl"
-                    value={meetingLink}
-                    onChange={(e) => setMeetingLink(e.target.value)}
-                    placeholder="https://meet.google.com/..."
-                  />
-                </div>
+                {mode === "presentiel" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Lieu</Label>
+                    <Input
+                      id="location"
+                      className="rounded-xl"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Ex. Bureau Yas Togo, salle 2"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="meetingLink">Lien visio (optionnel)</Label>
+                    <Input
+                      id="meetingLink"
+                      className="rounded-xl"
+                      value={meetingLink}
+                      onChange={(e) => setMeetingLink(e.target.value)}
+                      placeholder="https://meet.google.com/..."
+                    />
+                    <p className="text-xs text-slate-400">
+                      Génération automatique à venir — collez ici votre lien
+                      Google Meet en attendant.
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notes</Label>
                   <Textarea
@@ -320,7 +381,10 @@ export default function RhEntretiensPage() {
                 <Button
                   onClick={() => scheduleMutation.mutate()}
                   disabled={
-                    !applicationId || !scheduledAt || scheduleMutation.isPending
+                    !applicationId ||
+                    !scheduledAt ||
+                    (mode === "presentiel" && !location.trim()) ||
+                    scheduleMutation.isPending
                   }
                   className="rounded-xl bg-yas-midnight hover:bg-yas-midnight/90"
                 >
@@ -638,6 +702,15 @@ export default function RhEntretiensPage() {
                       )}
                       {INTERVIEW_MODE_LABELS[interview.mode]}
                     </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                      {interview.durationMinutes} min
+                    </span>
+                    {interview.mode === "presentiel" && interview.location && (
+                      <span className="inline-flex items-center gap-1 truncate rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                        <MapPin className="size-3" />
+                        {interview.location}
+                      </span>
+                    )}
                   </div>
 
                   {interview.meetingLink && (

@@ -3,8 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Application from '#models/application'
 import Offer from '#models/offer'
 import CandidateProfile from '#models/candidate_profile'
-import User from '#models/user'
-import { applicationStoreValidator, applicationStatusValidator, guestApplicationValidator, notifyCandidatesValidator } from '#validators/yas'
+import { applicationStoreValidator, applicationStatusValidator, notifyCandidatesValidator } from '#validators/yas'
 import ApplicationStatusService from '#services/application_status_service'
 import NotificationService from '#services/notification_service'
 import MailService from '#services/mail_service'
@@ -12,8 +11,6 @@ import StorageService from '#services/storage_service'
 import AiService, { scoreToGrade } from '#services/ai_service'
 import DocumentReaderService from '#services/document_reader_service'
 import WebResearchService from '#services/web_research_service'
-import AccountActivationService from '#services/account_activation_service'
-import env from '#start/env'
 import { APPLICATION_STATUS_LABELS, type ApplicationStatus } from '#types/domain'
 import ActivityLogService from '#services/activity_log_service'
 
@@ -69,166 +66,6 @@ export default class ApplicationsController {
     void this.runAiAnalyze(application.id)
 
     return { data: application }
-  }
-
-  /**
-   * Candidature publique sans connexion préalable.
-   * Crée ou rattache un compte candidat via l'email.
-   */
-  async guestStore({ request, response }: HttpContext) {
-    const payload = await request.validateUsing(guestApplicationValidator)
-
-    const offer = await Offer.find(payload.offerId)
-    if (!offer || offer.status !== 'publiee') {
-      return response.badRequest({ message: 'Offre non disponible' })
-    }
-
-    const email = payload.email.toLowerCase().trim()
-    let user = await User.findBy('email', email)
-    let isNewAccount = false
-
-    if (user) {
-      if (user.role !== 'candidat') {
-        return response.conflict({
-          message:
-            'Cet email est déjà associé à un compte RH/admin. Utilisez une autre adresse email.',
-        })
-      }
-      if (!user.isActive) {
-        return response.forbidden({ message: 'Compte désactivé' })
-      }
-      if (payload.fullName && (!user.fullName || user.fullName.length < 2)) {
-        user.fullName = payload.fullName
-      }
-      if (payload.phone) user.phone = payload.phone
-      await user.save()
-    } else {
-      isNewAccount = true
-      user = await User.create({
-        fullName: payload.fullName,
-        email,
-        password: AccountActivationService.randomPassword(),
-        phone: payload.phone || null,
-        role: 'candidat',
-        isActive: true,
-        mustChangePassword: true,
-      })
-      await CandidateProfile.create({
-        userId: user.id,
-        bio: payload.bio || null,
-        skills: payload.skills || null,
-        cvUrl: null,
-        aiExtractedData: null,
-      })
-    }
-
-    const existing = await Application.query()
-      .where('offer_id', offer.id)
-      .where('user_id', user.id)
-      .first()
-    if (existing) {
-      return response.conflict({
-        message: 'Une candidature existe déjà pour cet email sur cette offre.',
-      })
-    }
-
-    const cv = request.file('cv', { size: '5mb', extnames: ['pdf', 'doc', 'docx'] })
-    const cover = request.file('coverLetter', { size: '5mb', extnames: ['pdf', 'doc', 'docx'] })
-    if (!cv) {
-      return response.badRequest({ message: 'Le CV est obligatoire' })
-    }
-
-    const cvUrl = await StorageService.saveUpload(cv, 'cv')
-    let coverLetterUrl: string | null = null
-    if (cover) coverLetterUrl = await StorageService.saveUpload(cover, 'cover')
-
-    let profile = await CandidateProfile.findBy('userId', user.id)
-    if (!profile) {
-      profile = await CandidateProfile.create({ userId: user.id })
-    }
-    profile.cvUrl = cvUrl
-    if (payload.bio) profile.bio = payload.bio
-    if (payload.skills) profile.skills = payload.skills
-    await profile.save()
-
-    const application = await Application.create({
-      offerId: offer.id,
-      userId: user.id,
-      cvUrl,
-      coverLetterUrl,
-      coverLetterText: payload.coverLetterText || null,
-      status: 'envoyee',
-      appliedAt: DateTime.now(),
-    })
-
-    await ApplicationStatusService.recordInitial(application, user.id)
-
-    await NotificationService.notifyStaff(
-      'guest_application',
-      `Nouvelle candidature (sans compte) de ${user!.fullName || user!.email} pour « ${offer.title} ».`
-    )
-
-    let activationUrl: string | null = null
-    if (isNewAccount) {
-      const token = AccountActivationService.createToken(user.id)
-      const base = env.get('FRONTEND_URL') || 'http://localhost:3000'
-      activationUrl = `${base.replace(/\/$/, '')}/activer-compte?token=${encodeURIComponent(token)}`
-      void MailService.sendGuestApplicationEmail(user, offer.title, activationUrl)
-    } else {
-      void MailService.sendApplicationConfirmationEmail(user, offer.title)
-    }
-
-    void this.runAiAnalyze(application.id)
-
-    return {
-      data: {
-        application,
-        isNewAccount,
-        message: isNewAccount
-          ? 'Candidature envoyée. Vérifiez votre email pour activer le suivi de votre dossier.'
-          : 'Candidature envoyée. Connectez-vous pour suivre votre dossier.',
-      },
-    }
-  }
-
-  /**
-   * Extraction CV publique — préremplissage formulaire uniquement.
-   * Pas d’évaluation / scoring du candidat.
-   */
-  async extractCvPublic({ request, response }: HttpContext) {
-    const cv = request.file('cv', { size: '5mb', extnames: ['pdf', 'doc', 'docx'] })
-    if (!cv) return response.badRequest({ message: 'Fichier CV requis' })
-
-    // Save temporarily under cv folder so DocumentReader can resolve the path
-    const cvUrl = await StorageService.saveUpload(cv, 'cv')
-    const read = await DocumentReaderService.readUpload(cvUrl)
-    const text = read?.text || ''
-
-    if (!text || text.length < 20) {
-      return {
-        data: {
-          fullName: null,
-          email: null,
-          phone: null,
-          bio: null,
-          skills: [] as string[],
-          cvUrl,
-          warning: 'Impossible d’extraire le texte du CV. Complétez le formulaire manuellement.',
-        },
-      }
-    }
-
-    const extracted = await AiService.extractCv(text)
-    return {
-      data: {
-        fullName: extracted.fullName || null,
-        email: extracted.email || null,
-        phone: extracted.phone || null,
-        bio: extracted.bio || null,
-        skills: extracted.skills || [],
-        cvUrl,
-      },
-    }
   }
 
   async me({ auth }: HttpContext) {

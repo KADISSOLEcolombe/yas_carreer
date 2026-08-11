@@ -5,14 +5,20 @@ import type {
   ApplicationStatus,
   CandidateDashboard,
   CandidateProfile,
+  ContractType,
+  Emploi,
   Interview,
   InterviewMode,
+  InterviewRequest,
+  InterviewStatus,
   Notification,
   Offer,
   OfferAiRanking,
   OfferStatus,
   OfferType,
   RhDashboard,
+  SupervisionNote,
+  SupervisionNoteType,
   User,
   UserRole,
 } from "@/lib/types";
@@ -129,6 +135,19 @@ export const authApi = {
   login: (payload: { email: string; password: string }) =>
     apiRequest<AuthPayload>("/auth/login", { method: "POST", json: payload, auth: false }),
 
+  register: (payload: {
+    fullName: string;
+    email: string;
+    password: string;
+    passwordConfirmation: string;
+    phone?: string;
+  }) =>
+    apiRequest<AuthPayload>("/auth/register", {
+      method: "POST",
+      json: payload,
+      auth: false,
+    }),
+
   activateAccount: (payload: {
     token: string;
     password: string;
@@ -175,7 +194,7 @@ export const usersApi = {
   create: (payload: {
     fullName: string;
     email: string;
-    role: "admin" | "rh";
+    role: "admin" | "rh" | "superviseur";
     phone?: string;
     password?: string;
   }) =>
@@ -260,6 +279,20 @@ export const offersApi = {
     apiRequest<Offer>(`/offers/${id}/ai-criteria`, {
       method: "PATCH",
       json: { aiAnalysisCriteria },
+    }),
+
+  finalizeSelection: (id: number, retainedApplicationIds: number[]) =>
+    apiRequest<{
+      offerId: number;
+      acceptedCount: number;
+      rejectedCount: number;
+      accepted: number[];
+      rejected: number[];
+      failed: { id: number; reason: string }[];
+      message: string;
+    }>(`/offers/${id}/finalize-selection`, {
+      method: "POST",
+      json: { retainedApplicationIds },
     }),
 };
 
@@ -357,55 +390,6 @@ export const applicationsApi = {
     });
   },
 
-  extractCvPublic: (cv: File) => {
-    const form = new FormData();
-    form.set("cv", cv);
-    return apiRequest<{
-      fullName: string | null;
-      email: string | null;
-      phone: string | null;
-      bio: string | null;
-      skills: string[];
-      cvUrl?: string;
-      warning?: string;
-    }>("/applications/extract-cv-public", {
-      method: "POST",
-      form,
-      auth: false,
-    });
-  },
-
-  guestCreate: (payload: {
-    offerId: number;
-    fullName: string;
-    email: string;
-    phone?: string;
-    coverLetterText?: string;
-    skills?: string;
-    bio?: string;
-    cv: File;
-    coverLetter?: File | null;
-  }) => {
-    const form = new FormData();
-    form.set("offerId", String(payload.offerId));
-    form.set("fullName", payload.fullName);
-    form.set("email", payload.email);
-    if (payload.phone) form.set("phone", payload.phone);
-    if (payload.coverLetterText) form.set("coverLetterText", payload.coverLetterText);
-    if (payload.skills) form.set("skills", payload.skills);
-    if (payload.bio) form.set("bio", payload.bio);
-    form.set("cv", payload.cv);
-    if (payload.coverLetter) form.set("coverLetter", payload.coverLetter);
-    return apiRequest<{
-      application: Application;
-      isNewAccount: boolean;
-      message: string;
-    }>("/applications/guest", {
-      method: "POST",
-      form,
-      auth: false,
-    });
-  },
 };
 
 // ---------- Interviews ----------
@@ -413,15 +397,90 @@ export const applicationsApi = {
 export const interviewsApi = {
   create: (payload: {
     applicationId: number;
+    supervisorId?: number;
     scheduledAt: string;
-    meetingLink?: string;
+    durationMinutes: number;
     mode: InterviewMode;
+    location?: string;
+    meetingLink?: string;
     notes?: string;
   }) => apiRequest<Interview>("/interviews", { method: "POST", json: payload }),
 
   me: () => apiRequest<Interview[]>("/interviews/me"),
 
   list: () => apiRequest<Interview[]>("/interviews"),
+
+  recordOutcome: (id: number, payload: { status: InterviewStatus; notes?: string | null }) =>
+    apiRequest<Interview>(`/interviews/${id}`, { method: "PATCH", json: payload }),
+};
+
+// ---------- Interview requests (disponibilité superviseur) ----------
+
+export const interviewRequestsApi = {
+  create: (payload: { applicationId: number; supervisorId: number }) =>
+    apiRequest<InterviewRequest>("/interview-requests", { method: "POST", json: payload }),
+
+  list: (applicationId?: number) =>
+    apiRequest<InterviewRequest[]>(
+      `/interview-requests${buildQuery({ applicationId })}`
+    ),
+
+  me: () => apiRequest<InterviewRequest[]>("/interview-requests/me"),
+
+  respond: (
+    id: number,
+    payload: { status: "disponible" | "indisponible"; availabilityNote?: string }
+  ) =>
+    apiRequest<InterviewRequest>(`/interview-requests/${id}`, {
+      method: "PATCH",
+      json: payload,
+    }),
+};
+
+// ---------- Emplois (affectations post-recrutement) ----------
+
+export const emploisApi = {
+  create: (payload: {
+    applicationId: number;
+    supervisorId: number;
+    department?: string;
+    contractType: ContractType;
+    startDate: string;
+    endDate?: string;
+  }) => apiRequest<Emploi>("/emplois", { method: "POST", json: payload }),
+
+  list: () => apiRequest<Emploi[]>("/emplois"),
+
+  me: () => apiRequest<Emploi[]>("/emplois/me"),
+};
+
+// ---------- Supervision notes (rapports / évaluations / observations) ----------
+
+export const supervisionNotesApi = {
+  list: (emploiId: number) =>
+    apiRequest<SupervisionNote[]>(`/supervision-notes${buildQuery({ emploiId })}`),
+
+  create: (payload: {
+    emploiId: number;
+    type: SupervisionNoteType;
+    title?: string;
+    content: string;
+    rating?: number;
+  }) => apiRequest<SupervisionNote>("/supervision-notes", { method: "POST", json: payload }),
+
+  update: (
+    id: number,
+    payload: Partial<{
+      type: SupervisionNoteType;
+      title: string;
+      content: string;
+      rating: number;
+    }>
+  ) =>
+    apiRequest<SupervisionNote>(`/supervision-notes/${id}`, {
+      method: "PATCH",
+      json: payload,
+    }),
 };
 
 // ---------- Notifications ----------

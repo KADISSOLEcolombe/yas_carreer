@@ -178,28 +178,6 @@ export default class MailService {
     )
   }
 
-  static async sendGuestApplicationEmail(
-    user: User,
-    offerTitle: string,
-    activationUrl: string | null
-  ) {
-    const activateBlock = activationUrl
-      ? `<p style="margin:20px 0"><a href="${activationUrl}" style="background:#FFD100;color:#00377D;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700">Activer mon suivi</a></p>
-         <p>Ce lien est valable 48 heures. Vous pourrez ensuite suivre vos candidatures dans votre espace YasCareer.</p>`
-      : `<p>Connectez-vous à votre espace YasCareer pour suivre le statut de votre dossier.</p>`
-
-    await this.send(
-      user.email,
-      'Candidature reçue — activez votre suivi YasCareer',
-      this.wrap(
-        'Candidature confirmée',
-        `<p>Bonjour ${user.fullName || ''},</p>
-         <p>Nous avons bien reçu votre candidature pour <strong>${offerTitle}</strong>.</p>
-         ${activateBlock}`
-      )
-    )
-  }
-
   static async sendApplicationStatusEmail(user: User, offerTitle: string, statusLabel: string) {
     await this.send(
       user.email,

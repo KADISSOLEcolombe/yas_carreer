@@ -20,6 +20,7 @@ import {
 import { ApiError, authApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { ROLE_DASHBOARD_PATH } from "@/lib/constants";
+import { AuthCenteredShell } from "@/components/shared/auth-centered-shell";
 
 const schema = z
   .object({
@@ -144,12 +145,14 @@ function ActivateForm() {
 
 export default function ActivateAccountPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="h-40 w-full max-w-md animate-pulse rounded-xl bg-muted" />
-      }
-    >
-      <ActivateForm />
-    </Suspense>
+    <AuthCenteredShell>
+      <Suspense
+        fallback={
+          <div className="h-40 w-full max-w-md animate-pulse rounded-xl bg-muted" />
+        }
+      >
+        <ActivateForm />
+      </Suspense>
+    </AuthCenteredShell>
   );
 }

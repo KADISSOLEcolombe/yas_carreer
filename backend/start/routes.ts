@@ -77,8 +77,6 @@ router
       .use([middleware.auth(), middleware.role({ roles: ['rh', 'admin'] })])
 
     // Applications
-    router.post('applications/guest', [controllers.Applications, 'guestStore'])
-    router.post('applications/extract-cv-public', [controllers.Applications, 'extractCvPublic'])
     router
       .post('applications', [controllers.Applications, 'store'])
       .use([middleware.auth(), middleware.role({ roles: ['candidat'] })])

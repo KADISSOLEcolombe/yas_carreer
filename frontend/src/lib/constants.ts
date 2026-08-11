@@ -1,9 +1,13 @@
 import type {
   ApplicationStatus,
+  ContractType,
+  EmploiStatus,
   InterviewMode,
+  InterviewRequestStatus,
   InterviewStatus,
   OfferStatus,
   OfferType,
+  SupervisionNoteType,
   UserRole,
 } from "@/lib/types";
 
@@ -14,9 +18,11 @@ export const YAS_COLORS = {
 } as const;
 
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
-  envoyee: "Envoyée",
+  envoyee: "En attente",
   en_cours_analyse: "En cours d'analyse",
+  preselectionnee: "Présélectionnée",
   entretien_programme: "Entretien programmé",
+  entretien_realise: "Entretien réalisé",
   acceptee: "Acceptée",
   rejetee: "Rejetée",
 };
@@ -24,10 +30,27 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
 export const APPLICATION_STATUS_ORDER: ApplicationStatus[] = [
   "envoyee",
   "en_cours_analyse",
+  "preselectionnee",
   "entretien_programme",
+  "entretien_realise",
   "acceptee",
   "rejetee",
 ];
+
+/**
+ * Miroir de `APPLICATION_TRANSITIONS` (yascareer-backend/src/server/domain.ts) —
+ * uniquement pour filtrer l'UI (menu déroulant RH). La source de vérité reste
+ * la validation serveur ; ne pas s'appuyer sur cette table pour la sécurité.
+ */
+export const APPLICATION_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
+  envoyee: ["en_cours_analyse", "rejetee"],
+  en_cours_analyse: ["preselectionnee", "rejetee"],
+  preselectionnee: ["entretien_programme", "rejetee"],
+  entretien_programme: ["entretien_realise", "rejetee"],
+  entretien_realise: ["acceptee", "rejetee"],
+  acceptee: [],
+  rejetee: [],
+};
 
 export const APPLICATION_STATUS_BADGE_VARIANT: Record<
   ApplicationStatus,
@@ -35,7 +58,9 @@ export const APPLICATION_STATUS_BADGE_VARIANT: Record<
 > = {
   envoyee: "secondary",
   en_cours_analyse: "outline",
+  preselectionnee: "outline",
   entretien_programme: "default",
+  entretien_realise: "default",
   acceptee: "default",
   rejetee: "destructive",
 };
@@ -66,12 +91,14 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Administrateur",
   rh: "Ressources humaines",
   candidat: "Candidat",
+  superviseur: "Superviseur",
 };
 
 export const ROLE_DASHBOARD_PATH: Record<UserRole, string> = {
   admin: "/admin/dashboard",
   rh: "/rh/dashboard",
   candidat: "/candidat/dashboard",
+  superviseur: "/superviseur/dashboard",
 };
 
 export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
@@ -84,6 +111,33 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   ai_analysis_ready: "Analyse IA",
   ai_ranking_ready: "Classement IA",
   account_activated: "Compte activé",
+  availability_request: "Demande de disponibilité",
+  availability_response: "Réponse de disponibilité",
+  emploi_assigned: "Nouvelle affectation",
+  supervision_note: "Nouveau suivi",
+};
+
+export const INTERVIEW_REQUEST_STATUS_LABELS: Record<InterviewRequestStatus, string> = {
+  en_attente: "En attente",
+  disponible: "Disponible",
+  indisponible: "Indisponible",
+};
+
+export const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
+  stage: "Stage",
+  cdd: "CDD",
+  cdi: "CDI",
+};
+
+export const EMPLOI_STATUS_LABELS: Record<EmploiStatus, string> = {
+  actif: "Actif",
+  termine: "Terminé",
+};
+
+export const SUPERVISION_NOTE_TYPE_LABELS: Record<SupervisionNoteType, string> = {
+  rapport: "Rapport de suivi",
+  evaluation: "Évaluation",
+  observation: "Observation",
 };
 
 /** Lien métier selon le type de notification et le rôle. */
@@ -105,7 +159,14 @@ export function notificationHref(
     if (type === "offer_published") return "/rh/offres";
     return "/admin/notifications";
   }
+  if (role === "superviseur") {
+    if (type === "availability_request") return "/superviseur/disponibilites";
+    if (type === "interview") return "/superviseur/entretiens";
+    if (type === "emploi_assigned") return "/superviseur/employes";
+    return "/superviseur/notifications";
+  }
   // RH
+  if (type === "availability_response") return "/rh/entretiens";
   if (type === "new_application" || type === "guest_application")
     return "/rh/candidatures";
   if (type === "ai_ranking_ready" || type === "ai_analysis_ready")

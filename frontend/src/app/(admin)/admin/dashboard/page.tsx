@@ -119,7 +119,9 @@ export default function AdminDashboardPage() {
             {[
               { c: "#5F99D2", v: byStatus.envoyee || 0 },
               { c: "#FFD100", v: byStatus.en_cours_analyse || 0 },
+              { c: "#E8A400", v: byStatus.preselectionnee || 0 },
               { c: "#00377D", v: byStatus.entretien_programme || 0 },
+              { c: "#5F99D2", v: byStatus.entretien_realise || 0 },
               { c: "#10B981", v: byStatus.acceptee || 0 },
               { c: "#F43F5E", v: byStatus.rejetee || 0 },
             ].map((s, i) => (

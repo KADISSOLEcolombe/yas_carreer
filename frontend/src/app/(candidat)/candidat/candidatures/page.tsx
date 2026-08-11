@@ -11,6 +11,7 @@ import {
   APPLICATION_STATUS_LABELS,
   INTERVIEW_MODE_LABELS,
 } from "@/lib/constants";
+import { ApplicationStepper } from "@/components/shared/application-stepper";
 
 export default function CandidatCandidaturesPage() {
   const { data: applications, isLoading } = useQuery({
@@ -60,6 +61,7 @@ export default function CandidatCandidaturesPage() {
               </Badge>
             </CardHeader>
             <CardContent className="space-y-3">
+              <ApplicationStepper status={app.status} />
               {app.aiSummary && (
                 <div className="flex gap-2 rounded-lg bg-muted p-3 text-sm">
                   <Sparkles className="mt-0.5 size-4 shrink-0 text-yas-sky" />

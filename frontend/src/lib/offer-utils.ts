@@ -199,3 +199,14 @@ export function daysUntil(deadline: string | null | undefined): number | null {
   const diff = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
   return diff
 }
+
+/**
+ * "Clôturée" est dérivé de `deadline`, jamais d'un champ stocké — le RH garde
+ * la main sur `status` et peut prolonger la deadline pour rouvrir les
+ * candidatures. Reste cohérent avec la candidature possible jusqu'à la fin
+ * du jour de la deadline (même logique que le blocage côté backend).
+ */
+export function isOfferExpired(deadline: string | null | undefined): boolean {
+  const days = daysUntil(deadline)
+  return days !== null && days < 0
+}

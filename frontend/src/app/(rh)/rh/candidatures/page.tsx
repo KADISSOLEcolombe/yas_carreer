@@ -13,8 +13,10 @@ import {
   Trophy,
   X,
   Mail,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -41,13 +43,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ApiError, applicationsApi, fileUrl, offersApi } from "@/lib/api";
+import {
+  ApiError,
+  applicationsApi,
+  emploisApi,
+  fileUrl,
+  interviewRequestsApi,
+  offersApi,
+  usersApi,
+} from "@/lib/api";
 import { trackRhAction } from "@/lib/track-activity";
 import {
   APPLICATION_STATUS_LABELS,
   APPLICATION_STATUS_ORDER,
+  APPLICATION_TRANSITIONS,
+  CONTRACT_TYPE_LABELS,
 } from "@/lib/constants";
-import type { Application, ApplicationStatus } from "@/lib/types";
+import type { Application, ApplicationStatus, ContractType } from "@/lib/types";
 import {
   SoftCard,
   SoftPageHeader,
@@ -85,6 +97,17 @@ function RhCandidaturesContent() {
   const [mailOpen, setMailOpen] = useState(false);
   const [mailIds, setMailIds] = useState<number[]>([]);
   const [mailMessage, setMailMessage] = useState("");
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
+
+  const [availabilityTarget, setAvailabilityTarget] = useState<Application | null>(null);
+  const [availabilitySupervisorId, setAvailabilitySupervisorId] = useState("");
+
+  const [emploiTarget, setEmploiTarget] = useState<Application | null>(null);
+  const [emploiSupervisorId, setEmploiSupervisorId] = useState("");
+  const [emploiDepartment, setEmploiDepartment] = useState("");
+  const [emploiContractType, setEmploiContractType] = useState<ContractType>("cdi");
+  const [emploiStartDate, setEmploiStartDate] = useState("");
+  const [emploiEndDate, setEmploiEndDate] = useState("");
 
   const { data: applications, isLoading } = useQuery({
     queryKey: ["applications", "rh", offerId ?? "all"],
@@ -95,6 +118,11 @@ function RhCandidaturesContent() {
     queryKey: ["offer", offerId],
     queryFn: () => offersApi.get(offerId!),
     enabled: Boolean(offerId),
+  });
+
+  const { data: supervisors } = useQuery({
+    queryKey: ["users", "superviseur"],
+    queryFn: () => usersApi.list("superviseur"),
   });
 
   useEffect(() => {
@@ -131,9 +159,41 @@ function RhCandidaturesContent() {
     return list;
   }, [applications, statusFilter, q, sort]);
 
+  const activeStatuses: ApplicationStatus[] = [
+    "envoyee",
+    "en_cours_analyse",
+    "preselectionnee",
+    "entretien_programme",
+    "entretien_realise",
+  ];
+
+  const othersToRejectCount = useMemo(() => {
+    return (applications ?? []).filter(
+      (a) => activeStatuses.includes(a.status) && !selected.includes(a.id)
+    ).length;
+  }, [applications, selected]);
+
+  const finalizeMutation = useMutation({
+    mutationFn: () => offersApi.finalizeSelection(offerId!, selected),
+    onSuccess: (data) => {
+      toast.success(data.message);
+      if (data.failed.length > 0) {
+        toast.message(`${data.failed.length} candidature(s) non traitée(s)`);
+      }
+      setFinalizeOpen(false);
+      setSelected([]);
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : "Finalisation impossible"
+      );
+    },
+  });
+
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: ApplicationStatus }) =>
-      applicationsApi.updateStatus(id, status, true),
+      applicationsApi.updateStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
       toast.success("Statut mis à jour");
@@ -181,6 +241,46 @@ function RhCandidaturesContent() {
     },
   });
 
+  const availabilityMutation = useMutation({
+    mutationFn: () =>
+      interviewRequestsApi.create({
+        applicationId: availabilityTarget!.id,
+        supervisorId: Number(availabilitySupervisorId),
+      }),
+    onSuccess: () => {
+      toast.success("Demande de disponibilité envoyée au superviseur");
+      setAvailabilityTarget(null);
+      setAvailabilitySupervisorId("");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Envoi impossible");
+    },
+  });
+
+  const emploiMutation = useMutation({
+    mutationFn: () =>
+      emploisApi.create({
+        applicationId: emploiTarget!.id,
+        supervisorId: Number(emploiSupervisorId),
+        department: emploiDepartment.trim() || undefined,
+        contractType: emploiContractType,
+        startDate: new Date(emploiStartDate).toISOString(),
+        endDate: emploiEndDate ? new Date(emploiEndDate).toISOString() : undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Dossier Emploi créé");
+      setEmploiTarget(null);
+      setEmploiSupervisorId("");
+      setEmploiDepartment("");
+      setEmploiStartDate("");
+      setEmploiEndDate("");
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Création impossible");
+    },
+  });
+
   const mailTargets = useMemo(() => {
     return (applications ?? []).filter((a) => mailIds.includes(a.id));
   }, [applications, mailIds]);
@@ -218,9 +318,19 @@ function RhCandidaturesContent() {
       count: counts.en_cours_analyse,
     },
     {
+      value: "preselectionnee",
+      label: "Présélection",
+      count: counts.preselectionnee,
+    },
+    {
       value: "entretien_programme",
-      label: "Entretien",
+      label: "Entretien programmé",
       count: counts.entretien_programme,
+    },
+    {
+      value: "entretien_realise",
+      label: "Entretien réalisé",
+      count: counts.entretien_realise,
     },
     { value: "acceptee", label: "Acceptées", count: counts.acceptee },
     { value: "rejetee", label: "Rejetées", count: counts.rejetee },
@@ -272,6 +382,14 @@ function RhCandidaturesContent() {
           </Button>
           <Button asChild variant="ghost" size="sm" className="h-7 rounded-lg px-2">
             <Link href={`/rh/offres/${offerId}`}>Voir l&apos;offre</Link>
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-white hover:bg-emerald-600/90"
+            onClick={() => setFinalizeOpen(true)}
+          >
+            <CheckCircle2 className="size-3.5" />
+            Finaliser la sélection
           </Button>
         </div>
       )}
@@ -432,7 +550,10 @@ function RhCandidaturesContent() {
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {APPLICATION_STATUS_ORDER.map((s) => (
+                          <SelectItem value={app.status}>
+                            {APPLICATION_STATUS_LABELS[app.status]}
+                          </SelectItem>
+                          {APPLICATION_TRANSITIONS[app.status].map((s) => (
                             <SelectItem key={s} value={s}>
                               {APPLICATION_STATUS_LABELS[s]}
                             </SelectItem>
@@ -477,16 +598,42 @@ function RhCandidaturesContent() {
                             Envoyer un email
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
+                          {APPLICATION_TRANSITIONS[app.status].includes(
+                            "entretien_programme"
+                          ) && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                statusMutation.mutate({
+                                  id: app.id,
+                                  status: "entretien_programme",
+                                })
+                              }
+                            >
+                              Marquer entretien
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
-                            onClick={() =>
-                              statusMutation.mutate({
-                                id: app.id,
-                                status: "entretien_programme",
-                              })
-                            }
+                            onClick={() => {
+                              setAvailabilityTarget(app);
+                              setAvailabilitySupervisorId("");
+                            }}
                           >
-                            Marquer entretien
+                            Demander une disponibilité
                           </DropdownMenuItem>
+                          {app.status === "acceptee" && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEmploiTarget(app);
+                                setEmploiSupervisorId("");
+                                setEmploiDepartment("");
+                                setEmploiContractType("cdi");
+                                setEmploiStartDate("");
+                                setEmploiEndDate("");
+                              }}
+                            >
+                              Créer le dossier Emploi
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -525,6 +672,61 @@ function RhCandidaturesContent() {
           </div>
         </div>
       )}
+
+      <Dialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Finaliser la sélection</DialogTitle>
+            <DialogDescription>
+              Pour « {offer?.title ?? `offre #${offerId}`} »
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              <span className="font-semibold text-emerald-700">
+                {selected.length} candidature{selected.length > 1 ? "s" : ""}
+              </span>{" "}
+              {selected.length > 1 ? "seront acceptées" : "sera acceptée"}.
+            </p>
+            <p>
+              <span className="font-semibold text-destructive">
+                {othersToRejectCount} autre{othersToRejectCount > 1 ? "s" : ""}{" "}
+                candidature{othersToRejectCount > 1 ? "s" : ""}
+              </span>{" "}
+              actuellement active{othersToRejectCount > 1 ? "s" : ""} pour cette
+              offre {othersToRejectCount > 1 ? "seront automatiquement rejetées" : "sera automatiquement rejetée"}{" "}
+              et {othersToRejectCount > 1 ? "notifiées" : "notifiée"} par email.
+            </p>
+            {selected.length === 0 && (
+              <p className="rounded-lg bg-amber-50 p-2.5 text-amber-800">
+                Aucune candidature sélectionnée — tous les candidats encore
+                actifs pour cette offre seront rejetés.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Les candidatures déjà acceptées ou rejetées ne sont pas
+              concernées. Cette action est journalisée.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setFinalizeOpen(false)}
+              disabled={finalizeMutation.isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              className="rounded-xl bg-emerald-600 hover:bg-emerald-600/90"
+              onClick={() => finalizeMutation.mutate()}
+              disabled={finalizeMutation.isPending}
+            >
+              {finalizeMutation.isPending ? "Traitement…" : "Confirmer la finalisation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={mailOpen} onOpenChange={setMailOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -598,6 +800,138 @@ function RhCandidaturesContent() {
         onOpenChange={setRankOpen}
         initialOfferId={offerId}
       />
+
+      <Dialog
+        open={Boolean(availabilityTarget)}
+        onOpenChange={(open) => !open && setAvailabilityTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Demander une disponibilité</DialogTitle>
+            <DialogDescription>
+              Un email sera envoyé au superviseur pour confirmer sa
+              disponibilité avant de programmer l&apos;entretien avec{" "}
+              {availabilityTarget?.user?.fullName || availabilityTarget?.user?.email}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Superviseur</Label>
+            <Select value={availabilitySupervisorId} onValueChange={setAvailabilitySupervisorId}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Choisir un superviseur" />
+              </SelectTrigger>
+              <SelectContent>
+                {supervisors?.map((s) => (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    {s.fullName || s.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              className="rounded-xl bg-yas-midnight hover:bg-yas-midnight/90"
+              onClick={() => availabilityMutation.mutate()}
+              disabled={!availabilitySupervisorId || availabilityMutation.isPending}
+            >
+              {availabilityMutation.isPending ? "Envoi…" : "Envoyer la demande"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(emploiTarget)}
+        onOpenChange={(open) => !open && setEmploiTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Créer le dossier Emploi</DialogTitle>
+            <DialogDescription>
+              Affecte {emploiTarget?.user?.fullName || emploiTarget?.user?.email} à
+              un superviseur pour le suivi post-recrutement.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Superviseur</Label>
+              <Select value={emploiSupervisorId} onValueChange={setEmploiSupervisorId}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Choisir un superviseur" />
+                </SelectTrigger>
+                <SelectContent>
+                  {supervisors?.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.fullName || s.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Type de contrat</Label>
+              <Select
+                value={emploiContractType}
+                onValueChange={(v) => setEmploiContractType(v as ContractType)}
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CONTRACT_TYPE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emploi-department">Département (optionnel)</Label>
+              <Input
+                id="emploi-department"
+                className="rounded-xl"
+                value={emploiDepartment}
+                onChange={(e) => setEmploiDepartment(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="emploi-start">Date de début</Label>
+                <Input
+                  id="emploi-start"
+                  type="date"
+                  className="rounded-xl"
+                  value={emploiStartDate}
+                  onChange={(e) => setEmploiStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="emploi-end">Date de fin (optionnel)</Label>
+                <Input
+                  id="emploi-end"
+                  type="date"
+                  className="rounded-xl"
+                  value={emploiEndDate}
+                  onChange={(e) => setEmploiEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              className="rounded-xl bg-yas-midnight hover:bg-yas-midnight/90"
+              onClick={() => emploiMutation.mutate()}
+              disabled={
+                !emploiSupervisorId || !emploiStartDate || emploiMutation.isPending
+              }
+            >
+              {emploiMutation.isPending ? "Création…" : "Créer le dossier"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

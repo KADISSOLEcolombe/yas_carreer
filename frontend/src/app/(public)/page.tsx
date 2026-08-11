@@ -76,60 +76,50 @@ export default function HomePage() {
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="h-12 w-full rounded-xl border-white/35 bg-white/10 px-6 text-base text-white backdrop-blur-sm hover:bg-white/20 hover:text-white sm:w-auto"
-            >
-              <Link href="/login">Espace RH / Admin</Link>
-            </Button>
           </div>
         </div>
       </section>
 
-      <section className="bg-white py-14 sm:py-20">
+      <section className="bg-white py-14 sm:py-20 border-b border-slate-100">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-yas-sky">
             Simple &amp; clair
           </p>
           <h2 className="mt-2 font-heading text-2xl font-bold text-yas-midnight sm:text-4xl">
-            Comment postuler
+            Comment ça marche ?
           </h2>
           <p className="mt-3 max-w-xl text-sm text-slate-500 sm:text-base">
-            Trois étapes pour rejoindre Yas Togo — sans créer de compte au
-            préalable.
+            Postuler chez YAS TOGO en 4 étapes simples.
           </p>
 
-          <ol className="mt-10 grid gap-8 sm:mt-12 sm:grid-cols-3">
+          <ol className="mt-10 grid gap-8 sm:mt-12 sm:grid-cols-4">
             {[
               {
-                icon: Search,
                 step: "01",
-                title: "Choisir une offre",
-                text: "Parcourez les stages et CDI ouverts à Lomé et en régions.",
+                title: "Consultez les offres",
+                text: "Parcourez nos offres de stage, CDD et CDI disponibles au sein de YAS TOGO.",
               },
               {
-                icon: FileText,
                 step: "02",
-                title: "CV & formulaire",
-                text: "Déposez votre CV : les champs se préremplissent, vérifiez et envoyez.",
+                title: "Créez votre compte",
+                text: "Inscrivez-vous gratuitement pour accéder à toutes les fonctionnalités de la plateforme.",
               },
               {
-                icon: Mail,
                 step: "03",
-                title: "Suivi par email",
-                text: "Recevez une confirmation et activez votre espace pour suivre le statut.",
+                title: "Postulez",
+                text: "Envoyez votre candidature directement en ligne avec votre CV et votre lettre de motivation.",
+              },
+              {
+                step: "04",
+                title: "Suivez votre candidature",
+                text: "Recevez des mises à jour en temps réel sur l'avancement de votre dossier.",
               },
             ].map((item) => (
-              <li key={item.step} className="relative">
-                <span className="font-heading text-4xl font-bold text-yas-yellow/80">
+              <li key={item.step} className="flex flex-col items-center sm:items-start text-center sm:text-left">
+                <div className="flex size-14 items-center justify-center rounded-full bg-yas-yellow font-heading text-lg font-bold text-yas-midnight shadow-sm">
                   {item.step}
-                </span>
-                <div className="mt-3 flex size-11 items-center justify-center rounded-xl bg-yas-midnight/5 text-yas-midnight">
-                  <item.icon className="size-5" />
                 </div>
-                <h3 className="mt-4 font-heading text-lg font-semibold text-yas-midnight">
+                <h3 className="mt-5 font-heading text-lg font-semibold text-yas-midnight">
                   {item.title}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-500">

@@ -68,10 +68,22 @@ export default function RhDashboardPage() {
       value: byStatus.en_cours_analyse || 0,
     },
     {
+      key: "preselectionnee",
+      label: "Présélection",
+      color: "#E8A400",
+      value: byStatus.preselectionnee || 0,
+    },
+    {
       key: "entretien_programme",
-      label: "Entretien",
+      label: "Entretien programmé",
       color: "#00377D",
       value: byStatus.entretien_programme || 0,
+    },
+    {
+      key: "entretien_realise",
+      label: "Entretien réalisé",
+      color: "#5F99D2",
+      value: byStatus.entretien_realise || 0,
     },
     {
       key: "acceptee",

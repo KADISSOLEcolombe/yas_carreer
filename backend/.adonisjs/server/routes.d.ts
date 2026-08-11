@@ -22,8 +22,6 @@ export type ScannedRoutes = {
     'offers.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'offers.update_ai_criteria': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'offers.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'applications.guest_store': { paramsTuple?: []; params?: {} }
-    'applications.extract_cv_public': { paramsTuple?: []; params?: {} }
     'applications.store': { paramsTuple?: []; params?: {} }
     'applications.me': { paramsTuple?: []; params?: {} }
     'applications.index': { paramsTuple?: []; params?: {} }
@@ -96,8 +94,6 @@ export type ScannedRoutes = {
     'users.store': { paramsTuple?: []; params?: {} }
     'offers.ai_assist': { paramsTuple?: []; params?: {} }
     'offers.store': { paramsTuple?: []; params?: {} }
-    'applications.guest_store': { paramsTuple?: []; params?: {} }
-    'applications.extract_cv_public': { paramsTuple?: []; params?: {} }
     'applications.store': { paramsTuple?: []; params?: {} }
     'applications.notify_selected': { paramsTuple?: []; params?: {} }
     'applications.ai_analyze': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

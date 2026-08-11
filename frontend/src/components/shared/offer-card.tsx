@@ -5,16 +5,22 @@ import {
   CalendarClock,
   GraduationCap,
   MapPin,
+  Heart,
 } from "lucide-react";
 import { OFFER_TYPE_LABELS } from "@/lib/constants";
 import {
   daysUntil,
   getDomainLabel,
   inferOfferDomain,
+  isOfferExpired,
   splitSkills,
 } from "@/lib/offer-utils";
 import type { Offer } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
+import { useAuthStore } from "@/lib/auth-store";
+import { toast } from "sonner";
+import { isFavoriteOffer, toggleFavoriteOffer } from "@/lib/favorites";
 
 export function OfferCard({
   offer,
@@ -25,8 +31,38 @@ export function OfferCard({
   className?: string;
   showDomain?: boolean;
 }) {
+  const { user } = useAuthStore();
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    setIsFavorite(isFavoriteOffer(user?.id, offer.id));
+  }, [offer.id, user?.id]);
+
+  const toggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      toast("Création de compte requise", {
+        description: "Veuillez créer un compte ou vous connecter pour ajouter des offres en favoris.",
+        action: {
+          label: "Se connecter",
+          onClick: () => window.location.href = `/login?next=/offres/${offer.id}`,
+        },
+      });
+      return;
+    }
+
+    const nowFavorite = toggleFavoriteOffer(user.id, offer.id);
+    setIsFavorite(nowFavorite);
+    toast.success(
+      nowFavorite ? "Offre ajoutée aux favoris" : "Offre retirée des favoris"
+    );
+  };
+
   const skills = splitSkills(offer.requirements).slice(0, 3);
   const days = daysUntil(offer.deadline);
+  const expired = isOfferExpired(offer.deadline);
   const domain = showDomain ? inferOfferDomain(offer) : null;
   const excerpt = offer.description
     .split("\n")
@@ -41,11 +77,22 @@ export function OfferCard({
     <Link
       href={`/offres/${offer.id}`}
       className={cn(
-        "group flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-yas-sky/40 hover:shadow-md",
+        "group relative flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-yas-sky/40 hover:shadow-md",
         className
       )}
     >
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Bouton Favoris */}
+      <button
+        onClick={toggleFavorite}
+        className={cn(
+          "absolute top-4 right-4 z-10 flex size-9 items-center justify-center rounded-full border border-slate-100 bg-white shadow-sm transition hover:scale-110",
+          isFavorite ? "text-red-500 border-red-100" : "text-slate-400 hover:text-slate-600"
+        )}
+      >
+        <Heart className={cn("size-4", isFavorite ? "fill-current" : "")} />
+      </button>
+
+      <div className="flex flex-wrap items-center gap-2 pr-8">
         <span
           className={cn(
             "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold",
@@ -66,8 +113,20 @@ export function OfferCard({
             {getDomainLabel(domain)}
           </span>
         )}
-        {days !== null && days >= 0 && days <= 14 && (
-          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+        {expired && (
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+            Offre clôturée
+          </span>
+        )}
+        {!expired && days !== null && days >= 0 && (
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-1 text-[11px] font-semibold",
+              days <= 14
+                ? "bg-amber-50 text-amber-700"
+                : "bg-slate-100 text-slate-500"
+            )}
+          >
             {days === 0 ? "Clôture aujourd'hui" : `${days} j restants`}
           </span>
         )}
@@ -92,10 +151,12 @@ export function OfferCard({
         {offer.deadline && (
           <span className="inline-flex items-center gap-1">
             <CalendarClock className="size-3.5 text-yas-sky" />
-            {new Date(offer.deadline).toLocaleDateString("fr-FR", {
-              day: "numeric",
-              month: "short",
-            })}
+            {expired
+              ? "Clôturée"
+              : new Date(offer.deadline).toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "short",
+                })}
           </span>
         )}
       </div>

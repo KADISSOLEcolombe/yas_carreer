@@ -27,8 +27,6 @@ export interface ApiDefinition {
     destroy: typeof routes['offers.destroy']
   }
   applications: {
-    guestStore: typeof routes['applications.guest_store']
-    extractCvPublic: typeof routes['applications.extract_cv_public']
     store: typeof routes['applications.store']
     me: typeof routes['applications.me']
     index: typeof routes['applications.index']

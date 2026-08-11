@@ -55,7 +55,7 @@ export default function AdminUtilisateursPage() {
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "rh">("rh");
+  const [role, setRole] = useState<"admin" | "rh" | "superviseur">("rh");
   const [phone, setPhone] = useState("");
   const [selected, setSelected] = useState<number[]>([]);
 
@@ -193,13 +193,14 @@ export default function AdminUtilisateursPage() {
                   <Label>Rôle</Label>
                   <Select
                     value={role}
-                    onValueChange={(v) => setRole(v as "admin" | "rh")}
+                    onValueChange={(v) => setRole(v as "admin" | "rh" | "superviseur")}
                   >
                     <SelectTrigger className="rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="rh">Ressources humaines</SelectItem>
+                      <SelectItem value="superviseur">Superviseur</SelectItem>
                       <SelectItem value="admin">Administrateur</SelectItem>
                     </SelectContent>
                   </Select>
@@ -338,6 +339,7 @@ export default function AdminUtilisateursPage() {
                             </SelectItem>
                           ) : null}
                           <SelectItem value="rh">RH</SelectItem>
+                          <SelectItem value="superviseur">Superviseur</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>

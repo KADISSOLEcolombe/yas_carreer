@@ -114,18 +114,6 @@ const routes = {
     tokens: [{"old":"/api/offers/:id","type":0,"val":"api","end":""},{"old":"/api/offers/:id","type":0,"val":"offers","end":""},{"old":"/api/offers/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['offers.destroy']['types'],
   },
-  'applications.guest_store': {
-    methods: ["POST"],
-    pattern: '/api/applications/guest',
-    tokens: [{"old":"/api/applications/guest","type":0,"val":"api","end":""},{"old":"/api/applications/guest","type":0,"val":"applications","end":""},{"old":"/api/applications/guest","type":0,"val":"guest","end":""}],
-    types: placeholder as Registry['applications.guest_store']['types'],
-  },
-  'applications.extract_cv_public': {
-    methods: ["POST"],
-    pattern: '/api/applications/extract-cv-public',
-    tokens: [{"old":"/api/applications/extract-cv-public","type":0,"val":"api","end":""},{"old":"/api/applications/extract-cv-public","type":0,"val":"applications","end":""},{"old":"/api/applications/extract-cv-public","type":0,"val":"extract-cv-public","end":""}],
-    types: placeholder as Registry['applications.extract_cv_public']['types'],
-  },
   'applications.store': {
     methods: ["POST"],
     pattern: '/api/applications',

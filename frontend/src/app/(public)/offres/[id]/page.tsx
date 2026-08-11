@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   MapPin,
   Share2,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,11 +32,11 @@ import { ApiError, applicationsApi, offersApi } from "@/lib/api";
 import { OFFER_TYPE_LABELS } from "@/lib/constants";
 import {
   daysUntil,
+  isOfferExpired,
   parseOfferSections,
   splitSkills,
 } from "@/lib/offer-utils";
 import { useAuthStore } from "@/lib/auth-store";
-import { GuestApplyDialog } from "@/components/shared/guest-apply-dialog";
 
 export default function OfferDetailPage({
   params,
@@ -100,6 +101,7 @@ export default function OfferDetailPage({
   const skills = splitSkills(offer.requirements);
   const sections = parseOfferSections(offer.description);
   const days = daysUntil(offer.deadline);
+  const expired = isOfferExpired(offer.deadline);
 
   async function shareOffer() {
     const url = window.location.href;
@@ -140,10 +142,22 @@ export default function OfferDetailPage({
             <Badge className="bg-yas-yellow text-yas-midnight hover:bg-yas-yellow">
               {OFFER_TYPE_LABELS[offer.type]}
             </Badge>
-            {days !== null && days >= 0 && (
+            {expired && (
               <Badge
                 variant="outline"
                 className="border-white/30 bg-white/5 text-white"
+              >
+                Offre clôturée
+              </Badge>
+            )}
+            {!expired && days !== null && days >= 0 && (
+              <Badge
+                variant="outline"
+                className={
+                  days <= 14
+                    ? "border-yas-yellow/40 bg-yas-yellow/15 text-yas-yellow"
+                    : "border-white/30 bg-white/5 text-white"
+                }
               >
                 {days === 0
                   ? "Clôture aujourd'hui"
@@ -248,34 +262,52 @@ export default function OfferDetailPage({
               Intéressé(e) ?
             </p>
             <p className="mt-2 text-sm text-slate-500">
-              {user?.role === "candidat"
-                ? "Joignez votre CV et une lettre pour envoyer votre candidature."
-                : "Déposez votre CV pour préremplir le formulaire (nom, email…). Un email vous permettra ensuite de suivre votre dossier."}
+              {expired
+                ? "Les candidatures pour cette offre sont closes. La date limite de candidature est dépassée."
+                : user?.role === "candidat"
+                  ? "Joignez votre CV et une lettre pour envoyer votre candidature."
+                  : "Veuillez vous connecter ou créer un compte candidat pour postuler à cette offre et suivre votre dossier."}
             </p>
 
-            {hydrated && !user && (
-              <div className="mt-5 space-y-2">
-                <GuestApplyDialog
-                  offerId={Number(id)}
-                  offerTitle={offer.title}
-                />
-                <p className="text-center text-xs text-slate-400">
-                  Déjà un compte ?{" "}
-                  <Link
-                    href={`/login?next=/offres/${id}`}
-                    className="font-medium text-yas-sky underline-offset-2 hover:underline"
-                  >
-                    Se connecter
+            {expired && (
+              <div className="mt-5 flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-sm font-medium text-slate-500">
+                <XCircle className="size-4 shrink-0 text-slate-400" />
+                Offre clôturée
+              </div>
+            )}
+
+            {!expired && hydrated && !user && (
+              <div className="mt-5 space-y-3">
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-12 w-full rounded-xl bg-yas-yellow text-base font-semibold text-yas-midnight hover:bg-yas-yellow/90 border-none"
+                >
+                  <Link href={`/login?next=/offres/${id}`}>
+                    Se connecter pour postuler
                   </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="h-12 w-full rounded-xl border-slate-200 text-base text-yas-midnight hover:bg-slate-50"
+                >
+                  <Link href={`/register?next=/offres/${id}`}>
+                    Créer un compte candidat
+                  </Link>
+                </Button>
+                <p className="text-center text-xs text-slate-400">
+                  La création de compte est requise pour postuler et suivre vos candidatures.
                 </p>
               </div>
             )}
 
-            {!hydrated && (
+            {!expired && !hydrated && (
               <div className="mt-5 h-12 animate-pulse rounded-xl bg-slate-100" />
             )}
 
-            {hydrated && user?.role === "candidat" && (
+            {!expired && hydrated && user?.role === "candidat" && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button
@@ -346,7 +378,7 @@ export default function OfferDetailPage({
               </Dialog>
             )}
 
-            {hydrated && user && user.role !== "candidat" && (
+            {!expired && hydrated && user && user.role !== "candidat" && (
               <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
                 Vous êtes connecté en tant que {user.role === "rh" ? "RH" : "admin"}.
                 Utilisez un compte candidat pour postuler.

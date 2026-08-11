@@ -43,7 +43,7 @@ import {
   OfferComposerDialog,
   type OfferFormValues,
 } from "@/components/shared/offer-composer-dialog";
-import { daysUntil, splitSkills } from "@/lib/offer-utils";
+import { daysUntil, isOfferExpired, splitSkills } from "@/lib/offer-utils";
 
 export default function RhOffresPage() {
   const queryClient = useQueryClient();
@@ -200,7 +200,7 @@ export default function RhOffresPage() {
               <Plus className="size-4" />
               Nouvelle offre
             </Button>
-          </div>
+          </div>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
         }
       />
 
@@ -245,6 +245,7 @@ export default function RhOffresPage() {
         {filtered.map((offer) => {
           const skills = splitSkills(offer.requirements).slice(0, 3);
           const days = daysUntil(offer.deadline);
+          const expired = isOfferExpired(offer.deadline);
           const appCount = appsByOffer[offer.id] || 0;
           const excerpt = offer.description
             .split("\n")
@@ -297,9 +298,11 @@ export default function RhOffresPage() {
                   {offer.deadline && (
                     <span className="inline-flex items-center gap-1">
                       <CalendarClock className="size-3.5 text-yas-sky" />
-                      {days != null && days >= 0
-                        ? `${days} j restants`
-                        : new Date(offer.deadline).toLocaleDateString("fr-FR")}
+                      {expired
+                        ? `Clôturée — deadline dépassée (${new Date(offer.deadline).toLocaleDateString("fr-FR")})`
+                        : days != null && days >= 0
+                          ? `${days} j restants`
+                          : new Date(offer.deadline).toLocaleDateString("fr-FR")}
                     </span>
                   )}
                   <span className="inline-flex items-center gap-1">

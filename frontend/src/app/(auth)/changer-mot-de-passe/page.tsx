@@ -20,6 +20,7 @@ import { ApiError, authApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { ROLE_DASHBOARD_PATH } from "@/lib/constants";
 import { RouteGuard } from "@/components/shared/route-guard";
+import { AuthCenteredShell } from "@/components/shared/auth-centered-shell";
 
 const schema = z
   .object({
@@ -142,13 +143,15 @@ function ChangePasswordForm() {
 export default function ChangePasswordPage() {
   return (
     <RouteGuard allow={["admin", "rh", "candidat"]}>
-      <Suspense
-        fallback={
-          <div className="h-40 w-full max-w-md animate-pulse rounded-xl bg-muted" />
-        }
-      >
-        <ChangePasswordForm />
-      </Suspense>
+      <AuthCenteredShell>
+        <Suspense
+          fallback={
+            <div className="h-40 w-full max-w-md animate-pulse rounded-xl bg-muted" />
+          }
+        >
+          <ChangePasswordForm />
+        </Suspense>
+      </AuthCenteredShell>
     </RouteGuard>
   );
 }

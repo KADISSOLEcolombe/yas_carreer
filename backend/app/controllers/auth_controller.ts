@@ -5,6 +5,7 @@ import User from '#models/user'
 import CandidateProfile from '#models/candidate_profile'
 import UserTransformer from '#transformers/user_transformer'
 import {
+  registerValidator,
   loginValidator,
   updateProfileValidator,
   activateAccountValidator,
@@ -14,11 +15,29 @@ import AccountActivationService from '#services/account_activation_service'
 import NotificationService from '#services/notification_service'
 
 export default class AuthController {
-  /** Inscription publique désactivée — comptes candidats via candidature, RH via admin. */
-  async register({ response }: HttpContext) {
-    return response.gone({
-      message:
-        'L’inscription publique est désactivée. Postulez depuis une offre, ou contactez l’administrateur YasCareer pour un accès RH.',
+  /**
+   * Inscription publique — crée un compte candidat.
+   * Étape obligatoire avant de pouvoir déposer une candidature.
+   */
+  async register({ request, serialize }: HttpContext) {
+    const payload = await request.validateUsing(registerValidator)
+
+    const user = await User.create({
+      fullName: payload.fullName,
+      email: payload.email.toLowerCase().trim(),
+      password: payload.password,
+      phone: payload.phone || null,
+      role: 'candidat',
+      isActive: true,
+      mustChangePassword: false,
+    })
+    await CandidateProfile.create({ userId: user.id })
+
+    const token = await User.accessTokens.create(user)
+    return serialize({
+      user: UserTransformer.transform(user),
+      token: token.value!.release(),
+      message: 'Compte créé avec succès. Bienvenue sur YasCareer !',
     })
   }
 

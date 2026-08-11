@@ -71,16 +71,6 @@ export const applicationStoreValidator = vine.create({
   coverLetterText: vine.string().trim().minLength(20).maxLength(8000).optional(),
 })
 
-export const guestApplicationValidator = vine.create({
-  offerId: vine.number().withoutDecimals(),
-  fullName: vine.string().trim().minLength(2).maxLength(120),
-  email: email(),
-  phone: vine.string().trim().maxLength(30).optional(),
-  coverLetterText: vine.string().trim().minLength(20).maxLength(8000).optional(),
-  skills: vine.string().trim().maxLength(2000).optional(),
-  bio: vine.string().trim().maxLength(2000).optional(),
-})
-
 export const activateAccountValidator = vine.create({
   token: vine.string().trim().minLength(20).maxLength(500),
   password: password(),

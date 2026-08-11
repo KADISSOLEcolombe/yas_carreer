@@ -105,6 +105,7 @@ export function OfferComposerDialog({
   >({});
   const [genStep, setGenStep] = useState(0);
   const [composerOpen, setComposerOpen] = useState(mode === "create");
+  const [touched, setTouched] = useState<{ title?: boolean; description?: boolean }>({});
 
   const { supported, listening, toggle, stop } = useSpeechDictation((text) => {
     setBrief(text);
@@ -152,6 +153,7 @@ export function OfferComposerDialog({
     setAiFilled({});
     setGenStep(0);
     setComposerOpen(mode === "create");
+    setTouched({});
   }, [open, initialValues, mode, stop]);
 
   useEffect(() => {
@@ -163,8 +165,17 @@ export function OfferComposerDialog({
     return () => timers.forEach((t) => window.clearTimeout(t));
   }, [aiAssistMutation.isPending]);
 
-  const canSave =
-    form.title.trim().length >= 3 && form.description.trim().length >= 20;
+  const titleError = form.title.trim().length < 3;
+  const descriptionError = form.description.trim().length < 20;
+  const canSave = !titleError && !descriptionError;
+
+  function handleSave() {
+    if (!canSave) {
+      setTouched({ title: true, description: true });
+      return;
+    }
+    onSave(form);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -343,8 +354,14 @@ export function OfferComposerDialog({
                     setForm({ ...form, title: e.target.value });
                     setAiFilled((p) => ({ ...p, title: false }));
                   }}
+                  onBlur={() => setTouched((t) => ({ ...t, title: true }))}
                   placeholder="Ex. Stage — Développement Web"
                 />
+                {touched.title && titleError && (
+                  <p className="text-xs text-destructive">
+                    Le titre doit contenir au moins 3 caractères.
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -452,8 +469,14 @@ export function OfferComposerDialog({
                     setForm({ ...form, description: e.target.value });
                     setAiFilled((p) => ({ ...p, description: false }));
                   }}
+                  onBlur={() => setTouched((t) => ({ ...t, description: true }))}
                   placeholder="À propos, missions, profil…"
                 />
+                {touched.description && descriptionError && (
+                  <p className="text-xs text-destructive">
+                    La description doit contenir au moins 20 caractères.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -490,8 +513,8 @@ export function OfferComposerDialog({
             Annuler
           </Button>
           <Button
-            onClick={() => onSave(form)}
-            disabled={saving || !canSave || aiAssistMutation.isPending}
+            onClick={handleSave}
+            disabled={saving || aiAssistMutation.isPending}
             className="rounded-xl bg-yas-midnight hover:bg-yas-midnight/90"
           >
             {saving

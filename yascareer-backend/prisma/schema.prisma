@@ -1,0 +1,314 @@
+// YasCareer — Prisma schema (PostgreSQL)
+// Ported 1:1 from the original AdonisJS/Lucid migrations.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  rh
+  candidat
+  superviseur
+}
+
+enum InterviewRequestStatus {
+  en_attente
+  disponible
+  indisponible
+}
+
+enum ContractType {
+  stage
+  cdd
+  cdi
+}
+
+enum EmploiStatus {
+  actif
+  termine
+}
+
+enum SupervisionNoteType {
+  rapport
+  evaluation
+  observation
+}
+
+enum OfferType {
+  stage
+  emploi
+}
+
+enum OfferStatus {
+  brouillon
+  publiee
+  fermee
+}
+
+enum ApplicationStatus {
+  envoyee
+  en_cours_analyse
+  preselectionnee
+  entretien_programme
+  entretien_realise
+  acceptee
+  rejetee
+}
+
+enum InterviewMode {
+  presentiel
+  distanciel
+}
+
+enum InterviewStatus {
+  planifie
+  termine
+  annule
+}
+
+enum ChatRole {
+  user
+  assistant
+}
+
+model User {
+  id                 Int       @id @default(autoincrement())
+  fullName           String?   @map("full_name")
+  email              String    @unique @db.VarChar(254)
+  password           String
+  role               UserRole  @default(candidat)
+  phone              String?   @db.VarChar(30)
+  isActive           Boolean   @default(true) @map("is_active")
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime? @updatedAt @map("updated_at")
+
+  profile          CandidateProfile?
+  applications     Application[]
+  notifications    Notification[]
+  offers           Offer[]                    @relation("OfferCreator")
+  statusChanges    ApplicationStatusHistory[] @relation("StatusChanger")
+  activityLogs     ActivityLog[]
+  chatbotMessages  ChatbotMessage[]
+
+  supervisedInterviews          Interview[]        @relation("InterviewSupervisor")
+  interviewRequestsAsSupervisor InterviewRequest[]  @relation("InterviewRequestSupervisor")
+  interviewRequestsRequested    InterviewRequest[]  @relation("InterviewRequestRequester")
+  emploisAsCollaborateur        Emploi[]            @relation("EmploiCollaborateur")
+  emploisSupervised             Emploi[]            @relation("EmploiSupervisor")
+  supervisionNotesAuthored      SupervisionNote[]   @relation("SupervisionNoteAuthor")
+
+  @@map("users")
+}
+
+model CandidateProfile {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @unique @map("user_id")
+  bio             String?
+  skills          String?
+  cvUrl           String?   @map("cv_url")
+  aiExtractedData Json?     @map("ai_extracted_data")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime? @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("candidate_profiles")
+}
+
+model Offer {
+  id                 Int         @id @default(autoincrement())
+  title              String
+  type               OfferType
+  description        String
+  requirements       String?
+  deadline           DateTime?
+  location           String?
+  status             OfferStatus @default(brouillon)
+  aiAnalysisCriteria String?     @map("ai_analysis_criteria")
+  createdBy          Int         @map("created_by")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime?   @updatedAt @map("updated_at")
+
+  creator      User          @relation("OfferCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@map("offers")
+}
+
+model Application {
+  id              Int               @id @default(autoincrement())
+  offerId         Int               @map("offer_id")
+  userId          Int               @map("user_id")
+  cvUrl           String?           @map("cv_url")
+  coverLetterUrl  String?           @map("cover_letter_url")
+  coverLetterText String?           @map("cover_letter_text")
+  status          ApplicationStatus @default(envoyee)
+  aiMatchScore    Int?              @map("ai_match_score")
+  aiSummary       String?           @map("ai_summary")
+  aiAnalyzedAt    DateTime?         @map("ai_analyzed_at")
+  aiAnalysisData  Json?             @map("ai_analysis_data")
+  appliedAt       DateTime          @map("applied_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime?         @updatedAt @map("updated_at")
+
+  offer         Offer                      @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  user          User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statusHistory ApplicationStatusHistory[]
+  interview     Interview?
+  interviewRequests InterviewRequest[]
+  emploi        Emploi?
+
+  @@unique([offerId, userId])
+  @@map("applications")
+}
+
+model ApplicationStatusHistory {
+  id            Int       @id @default(autoincrement())
+  applicationId Int       @map("application_id")
+  status        String
+  changedBy     Int?      @map("changed_by")
+  changedAt     DateTime  @map("changed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime? @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changer     User?       @relation("StatusChanger", fields: [changedBy], references: [id], onDelete: SetNull)
+
+  @@map("application_status_histories")
+}
+
+model Interview {
+  id              Int             @id @default(autoincrement())
+  applicationId   Int             @unique @map("application_id")
+  supervisorId    Int?            @map("supervisor_id")
+  scheduledAt     DateTime        @map("scheduled_at")
+  durationMinutes Int             @default(30) @map("duration_minutes")
+  location        String?         @map("location")
+  meetingLink     String?         @map("meeting_link")
+  mode            InterviewMode   @default(distanciel)
+  status          InterviewStatus @default(planifie)
+  notes           String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime?       @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  supervisor  User?       @relation("InterviewSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+
+  @@map("interviews")
+}
+
+model InterviewRequest {
+  id               Int                     @id @default(autoincrement())
+  applicationId    Int                     @map("application_id")
+  supervisorId     Int                     @map("supervisor_id")
+  requestedBy      Int                     @map("requested_by")
+  status           InterviewRequestStatus  @default(en_attente)
+  availabilityNote String?                 @map("availability_note")
+  respondedAt      DateTime?               @map("responded_at")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime?               @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  supervisor  User        @relation("InterviewRequestSupervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
+  requester   User        @relation("InterviewRequestRequester", fields: [requestedBy], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([supervisorId])
+  @@map("interview_requests")
+}
+
+model Emploi {
+  id           Int          @id @default(autoincrement())
+  applicationId Int         @unique @map("application_id")
+  userId       Int          @map("user_id")
+  supervisorId Int          @map("supervisor_id")
+  department   String?
+  contractType ContractType @map("contract_type")
+  startDate    DateTime     @map("start_date")
+  endDate      DateTime?    @map("end_date")
+  status       EmploiStatus @default(actif)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime?    @updatedAt @map("updated_at")
+
+  application      Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  user             User              @relation("EmploiCollaborateur", fields: [userId], references: [id], onDelete: Cascade)
+  supervisor       User              @relation("EmploiSupervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
+  supervisionNotes SupervisionNote[]
+
+  @@index([supervisorId])
+  @@index([userId])
+  @@map("emplois")
+}
+
+model SupervisionNote {
+  id        Int                 @id @default(autoincrement())
+  emploiId  Int                 @map("emploi_id")
+  authorId  Int                 @map("author_id")
+  type      SupervisionNoteType
+  title     String?
+  content   String
+  rating    Int?
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime?           @updatedAt @map("updated_at")
+
+  emploi Emploi @relation(fields: [emploiId], references: [id], onDelete: Cascade)
+  author User   @relation("SupervisionNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([emploiId])
+  @@map("supervision_notes")
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  type      String
+  content   String
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model ChatbotMessage {
+  id        Int       @id @default(autoincrement())
+  userId    Int?      @map("user_id")
+  role      ChatRole
+  content   String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("chatbot_messages")
+}
+
+model ActivityLog {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  action       String   @db.VarChar(80)
+  category     String   @default("general") @db.VarChar(40)
+  summary      String   @db.VarChar(500)
+  resourceType String?  @map("resource_type") @db.VarChar(60)
+  resourceId   Int?     @map("resource_id")
+  metadata     Json?
+  ipAddress    String?  @map("ip_address") @db.VarChar(64)
+  userAgent    String?  @map("user_agent") @db.VarChar(500)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([action])
+  @@index([category])
+  @@map("activity_logs")
+}

@@ -31,6 +31,7 @@ import { AiRankingDialog } from "@/components/shared/ai-ranking-dialog";
 import { OfferAiAnalysisPanel } from "@/components/shared/offer-ai-analysis-panel";
 import {
   daysUntil,
+  isOfferExpired,
   parseOfferSections,
   splitSkills,
 } from "@/lib/offer-utils";
@@ -134,6 +135,7 @@ export default function RhOfferDetailPage({
   const sections = parseOfferSections(offer.description);
   const skills = splitSkills(offer.requirements);
   const days = daysUntil(offer.deadline);
+  const expired = isOfferExpired(offer.deadline);
   const totalApps = applications?.length ?? 0;
 
   return (
@@ -206,9 +208,11 @@ export default function RhOfferDetailPage({
               {offer.deadline && (
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarClock className="size-4 text-yas-sky" />
-                  {days != null && days >= 0
-                    ? `Clôture dans ${days} j`
-                    : new Date(offer.deadline).toLocaleDateString("fr-FR")}
+                  {expired
+                    ? `Clôturée — deadline dépassée le ${new Date(offer.deadline).toLocaleDateString("fr-FR")}`
+                    : days != null && days >= 0
+                      ? `Clôture dans ${days} j`
+                      : new Date(offer.deadline).toLocaleDateString("fr-FR")}
                 </span>
               )}
               <span className="inline-flex items-center gap-1.5">

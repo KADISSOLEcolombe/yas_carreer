@@ -11,12 +11,12 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/api/auth/register'
     types: {
-      body: {}
+      body: ExtractBody<InferInput<(typeof import('#validators/yas').registerValidator)>>
       paramsTuple: []
       params: {}
-      query: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/yas').registerValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['register']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['register']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['register']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'auth.login': {
@@ -203,12 +203,12 @@ export interface Registry {
     methods: ["PATCH"]
     pattern: '/api/offers/:id/ai-criteria'
     types: {
-      body: {}
+      body: ExtractBody<InferInput<(typeof import('#validators/yas').offerAiCriteriaValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/yas').offerAiCriteriaValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/offers_controller').default['updateAiCriteria']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/offers_controller').default['updateAiCriteria']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/offers_controller').default['updateAiCriteria']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'offers.destroy': {
@@ -221,30 +221,6 @@ export interface Registry {
       query: {}
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/offers_controller').default['destroy']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/offers_controller').default['destroy']>>>
-    }
-  }
-  'applications.guest_store': {
-    methods: ["POST"]
-    pattern: '/api/applications/guest'
-    types: {
-      body: ExtractBody<InferInput<(typeof import('#validators/yas').guestApplicationValidator)>>
-      paramsTuple: []
-      params: {}
-      query: ExtractQuery<InferInput<(typeof import('#validators/yas').guestApplicationValidator)>>
-      response: ExtractResponse<Awaited<ReturnType<import('#controllers/applications_controller').default['guestStore']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/applications_controller').default['guestStore']>>> | { status: 422; response: { errors: SimpleError[] } }
-    }
-  }
-  'applications.extract_cv_public': {
-    methods: ["POST"]
-    pattern: '/api/applications/extract-cv-public'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: ExtractResponse<Awaited<ReturnType<import('#controllers/applications_controller').default['extractCvPublic']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/applications_controller').default['extractCvPublic']>>>
     }
   }
   'applications.store': {

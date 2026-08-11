@@ -281,8 +281,10 @@ export function statusTone(
     case "acceptee":
     case "publiee":
     case "planifie":
+    case "entretien_realise":
       return "success";
     case "en_cours_analyse":
+    case "preselectionnee":
     case "entretien_programme":
     case "brouillon":
       return "warning";
