@@ -19,11 +19,26 @@ export function serializeUser(user: User) {
     phone: user.phone,
     isActive: user.isActive,
     mustChangePassword: user.mustChangePassword,
+    departementId: user.departementId,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     initials: computeInitials(user),
   };
 }
+
+const USER_CORE_FIELDS = new Set([
+  "id",
+  "fullName",
+  "email",
+  "password",
+  "role",
+  "phone",
+  "isActive",
+  "mustChangePassword",
+  "departementId",
+  "createdAt",
+  "updatedAt",
+]);
 
 /** Deeply strips `password` from any nested `user` relation in a payload. */
 export function sanitize<T>(value: T): T {
@@ -43,7 +58,15 @@ export function sanitize<T>(value: T): T {
         typeof val === "object" &&
         "email" in (val as Record<string, unknown>)
       ) {
-        out[key] = serializeUser(val as User);
+        // Base user shape strips the password and adds `initials` ; toute
+        // relation supplémentaire explicitement `include`e par la route
+        // (ex. `profile`) est conservée et sanitizée récursivement plutôt
+        // que silencieusement perdue.
+        const extra: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+          if (!USER_CORE_FIELDS.has(k)) extra[k] = sanitize(v);
+        }
+        out[key] = { ...serializeUser(val as User), ...extra };
       } else {
         out[key] = sanitize(val);
       }

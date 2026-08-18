@@ -10,9 +10,11 @@ import { ActivityLogService } from "@/server/services/activity-log";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// Supervisor: confirm or decline their availability for a requested interview.
+// Le superviseur répond lui-même à sa propre demande ; à défaut (superviseur
+// injoignable), le RH peut saisir la réponse à sa place — cas de secours, pas
+// le chemin attendu.
 export const PATCH = handler(async (req, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requireRole(req, ["superviseur"]);
+  const user = await requireRole(req, ["superviseur", "rh"]);
   const { id } = await params;
   const payload = interviewRequestRespondValidator.parse(await readJson(req));
 
@@ -21,7 +23,8 @@ export const PATCH = handler(async (req, { params }: { params: Promise<{ id: str
     include: { application: { include: { offer: true } } },
   });
   if (!interviewRequest) throw notFound("Demande introuvable");
-  if (interviewRequest.supervisorId !== user.id) {
+  const onBehalfOfSupervisor = user.role === "rh";
+  if (!onBehalfOfSupervisor && interviewRequest.supervisorId !== user.id) {
     throw forbidden("Cette demande ne vous est pas adressée");
   }
 
@@ -30,32 +33,49 @@ export const PATCH = handler(async (req, { params }: { params: Promise<{ id: str
     data: {
       status: payload.status,
       availabilityNote: payload.availabilityNote || null,
+      availableSlots: payload.availableSlots ?? undefined,
       respondedAt: new Date(),
     },
   });
 
-  await NotificationService.notify(
-    interviewRequest.requestedBy,
-    "availability_response",
-    `${user.fullName || user.email} a répondu ${payload.status === "disponible" ? "disponible" : "indisponible"} pour « ${interviewRequest.application.offer.title} ».`
-  );
-  const requester = await prisma.user.findUnique({ where: { id: interviewRequest.requestedBy } });
-  if (requester) {
-    MailService.sendAvailabilityResponseEmail(
-      requester,
-      user.fullName || user.email,
-      interviewRequest.application.offer.title,
-      payload.status
+  const offerTitle = interviewRequest.application?.offer.title;
+  const context = offerTitle ? ` pour « ${offerTitle} »` : "";
+  const supervisor = onBehalfOfSupervisor
+    ? await prisma.user.findUnique({ where: { id: interviewRequest.supervisorId } })
+    : user;
+  const responderLabel = onBehalfOfSupervisor
+    ? `${user.fullName || user.email} (pour ${supervisor?.fullName || supervisor?.email})`
+    : user.fullName || user.email;
+
+  // Le RH qui saisit à la place du superviseur est aussi, la plupart du
+  // temps, l'auteur de la demande initiale — inutile de se notifier soi-même.
+  if (interviewRequest.requestedBy !== user.id) {
+    await NotificationService.notify(
+      interviewRequest.requestedBy,
+      "availability_response",
+      `${responderLabel} a répondu ${payload.status === "disponible" ? "disponible" : "indisponible"}${context}.`
     );
+    const requester = await prisma.user.findUnique({ where: { id: interviewRequest.requestedBy } });
+    if (requester) {
+      MailService.sendAvailabilityResponseEmail(requester, responderLabel, payload.status, {
+        offerTitle,
+        slots:
+          payload.status === "disponible"
+            ? (updated.availableSlots as { date: string; start: string; end: string }[] | null)
+            : null,
+      });
+    }
   }
 
   void ActivityLogService.fromRequest(req, user, {
-    action: "interview_request.respond",
+    action: onBehalfOfSupervisor
+      ? "interview_request.respond_on_behalf"
+      : "interview_request.respond",
     category: "interview",
-    summary: `Réponse à la demande de disponibilité pour « ${interviewRequest.application.offer.title} » : ${payload.status}`,
-    resourceType: "application",
-    resourceId: interviewRequest.applicationId,
-    metadata: { status: payload.status, offerTitle: interviewRequest.application.offer.title },
+    summary: `Réponse à la demande de disponibilité${context} : ${payload.status}${onBehalfOfSupervisor ? " (saisie par le RH)" : ""}`,
+    resourceType: interviewRequest.applicationId ? "application" : "user",
+    resourceId: interviewRequest.applicationId ?? interviewRequest.supervisorId,
+    metadata: { status: payload.status, offerTitle: offerTitle ?? null, onBehalfOfSupervisor },
   });
 
   return ok(updated);

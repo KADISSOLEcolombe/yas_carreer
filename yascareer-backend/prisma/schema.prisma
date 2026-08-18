@@ -86,9 +86,15 @@ model User {
   phone              String?   @db.VarChar(30)
   isActive           Boolean   @default(true) @map("is_active")
   mustChangePassword Boolean   @default(false) @map("must_change_password")
+  // Département de rattachement — utilisé pour les superviseurs, afin de ne
+  // proposer que les superviseurs du département de l'offre lors de la
+  // programmation groupée des entretiens. Nullable : ne concerne pas les
+  // autres rôles et ne casse aucune donnée existante.
+  departementId      Int?      @map("departement_id")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime? @updatedAt @map("updated_at")
 
+  departement      Departement?               @relation(fields: [departementId], references: [id], onDelete: SetNull)
   profile          CandidateProfile?
   applications     Application[]
   notifications    Notification[]
@@ -103,6 +109,8 @@ model User {
   emploisAsCollaborateur        Emploi[]            @relation("EmploiCollaborateur")
   emploisSupervised             Emploi[]            @relation("EmploiSupervisor")
   supervisionNotesAuthored      SupervisionNote[]   @relation("SupervisionNoteAuthor")
+  applicationNotesAuthored      ApplicationNote[]   @relation("ApplicationNoteAuthor")
+  candidateDocuments            CandidateDocument[]
 
   @@map("users")
 }
@@ -112,6 +120,9 @@ model CandidateProfile {
   userId          Int       @unique @map("user_id")
   bio             String?
   skills          String?
+  anneesEtude     String?   @map("annees_etude")
+  ville           String?
+  quartier        String?
   cvUrl           String?   @map("cv_url")
   aiExtractedData Json?     @map("ai_extracted_data")
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -132,14 +143,39 @@ model Offer {
   location           String?
   status             OfferStatus @default(brouillon)
   aiAnalysisCriteria String?     @map("ai_analysis_criteria")
+  // Tableau JSON structuré : [{ nom, obligatoire, description? }] — documents
+  // complémentaires définis par le RH (CV/Lettre restent universels, gérés
+  // séparément, jamais dans cette liste). Les offres créées avant cette
+  // structuration ont été migrées avec obligatoire=true pour chaque entrée.
+  documentsRequis    Json        @default("[]") @map("documents_requis")
+  // Nullable en base pour ne pas forcer de migration sur les offres déjà
+  // créées ; le caractère obligatoire est appliqué à l'écriture (Zod +
+  // formulaire), pour toute nouvelle création/modification d'offre.
+  departementId      Int?        @map("departement_id")
   createdBy          Int         @map("created_by")
   createdAt          DateTime    @default(now()) @map("created_at")
   updatedAt          DateTime?   @updatedAt @map("updated_at")
 
   creator      User          @relation("OfferCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  departement  Departement?  @relation(fields: [departementId], references: [id], onDelete: SetNull)
   applications Application[]
 
   @@map("offers")
+}
+
+// Rattachement hiérarchique simple : Département → Offre → Candidatures.
+// Pas de gestion CRUD dédiée pour l'instant — juste la relation et la
+// sélection à la création/modification d'une offre.
+model Departement {
+  id          Int      @id @default(autoincrement())
+  nom         String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  offers      Offer[]
+  supervisors User[]
+
+  @@map("departements")
 }
 
 model Application {
@@ -149,6 +185,7 @@ model Application {
   cvUrl           String?           @map("cv_url")
   coverLetterUrl  String?           @map("cover_letter_url")
   coverLetterText String?           @map("cover_letter_text")
+  documentsUrls   Json?             @map("documents_urls")
   status          ApplicationStatus @default(envoyee)
   aiMatchScore    Int?              @map("ai_match_score")
   aiSummary       String?           @map("ai_summary")
@@ -161,9 +198,11 @@ model Application {
   offer         Offer                      @relation(fields: [offerId], references: [id], onDelete: Cascade)
   user          User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   statusHistory ApplicationStatusHistory[]
+  notes         ApplicationNote[]
   interview     Interview?
   interviewRequests InterviewRequest[]
   emploi        Emploi?
+  supervisionNotes  SupervisionNote[]
 
   @@unique([offerId, userId])
   @@map("applications")
@@ -173,6 +212,7 @@ model ApplicationStatusHistory {
   id            Int       @id @default(autoincrement())
   applicationId Int       @map("application_id")
   status        String
+  note          String?
   changedBy     Int?      @map("changed_by")
   changedAt     DateTime  @map("changed_at")
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -182,6 +222,37 @@ model ApplicationStatusHistory {
   changer     User?       @relation("StatusChanger", fields: [changedBy], references: [id], onDelete: SetNull)
 
   @@map("application_status_histories")
+}
+
+// Documents permanents du candidat (diplômes, certifications, attestations,
+// CV/lettre de motivation "type") — libellé libre, réutilisés lors des
+// candidatures par simple correspondance de texte avec `Offer.documentsRequis`.
+model CandidateDocument {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  label     String
+  url       String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("candidate_documents")
+}
+
+model ApplicationNote {
+  id            Int       @id @default(autoincrement())
+  applicationId Int       @map("application_id")
+  authorId      Int       @map("author_id")
+  content       String
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime? @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  author      User        @relation("ApplicationNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("application_notes")
 }
 
 model Interview {
@@ -206,18 +277,35 @@ model Interview {
 
 model InterviewRequest {
   id               Int                     @id @default(autoincrement())
-  applicationId    Int                     @map("application_id")
+  // Nullable : une demande peut concerner une candidature précise (ancien
+  // flux, conservé) OU être générique — une simple collecte de disponibilité
+  // auprès d'un superviseur, sans candidat associé pour l'instant (nouveau
+  // flux "Demander les disponibilités" depuis la page Entretiens).
+  applicationId    Int?                    @map("application_id")
   supervisorId     Int                     @map("supervisor_id")
   requestedBy      Int                     @map("requested_by")
   status           InterviewRequestStatus  @default(en_attente)
+  // Message professionnel rédigé par le RH à la création (demande générique),
+  // persisté pour que le superviseur puisse le relire une fois connecté —
+  // l'email envoyé à l'ouverture ne fait que renvoyer vers l'application.
+  message          String?                 @db.Text
   availabilityNote String?                 @map("availability_note")
+  // Double usage, réutilisé plutôt que dupliqué : au moment de l'envoi, ce
+  // sont les créneaux PROPOSÉS par le RH (tableau JSON de { date, start,
+  // end }) ; une fois que le superviseur répond, ce même champ est écrasé
+  // par le sous-ensemble qu'il CONFIRME comme disponible.
+  availableSlots   Json?                   @map("available_slots")
   respondedAt      DateTime?               @map("responded_at")
+  // Renseigné quand le RH a fini de traiter la réponse (généralement : au
+  // moment où il programme l'entretien à partir d'un créneau confirmé) —
+  // fait disparaître la demande de l'onglet "À traiter".
+  handledAt        DateTime?               @map("handled_at")
   createdAt        DateTime                @default(now()) @map("created_at")
   updatedAt        DateTime?               @updatedAt @map("updated_at")
 
-  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  supervisor  User        @relation("InterviewRequestSupervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
-  requester   User        @relation("InterviewRequestRequester", fields: [requestedBy], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  supervisor  User         @relation("InterviewRequestSupervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
+  requester   User         @relation("InterviewRequestRequester", fields: [requestedBy], references: [id], onDelete: Cascade)
 
   @@index([applicationId])
   @@index([supervisorId])
@@ -249,19 +337,31 @@ model Emploi {
 
 model SupervisionNote {
   id        Int                 @id @default(autoincrement())
-  emploiId  Int                 @map("emploi_id")
-  authorId  Int                 @map("author_id")
-  type      SupervisionNoteType
-  title     String?
-  content   String
-  rating    Int?
+  // Exactement l'un des deux est renseigné : emploiId pour le suivi/évaluation
+  // d'un collaborateur déjà recruté, applicationId pour l'évaluation d'un
+  // entretien avant toute décision d'embauche (pas encore de dossier Emploi).
+  emploiId      Int?    @map("emploi_id")
+  applicationId Int?    @map("application_id")
+  authorId      Int     @map("author_id")
+  type          SupervisionNoteType
+  title         String?
+  content       String
+  rating        Int?
+  // Uniquement pour une évaluation d'entretien (type "evaluation" +
+  // applicationId) : favorable | a_revoir | defavorable.
+  recommendation String?
+  // Chemin (/uploads/...) du PDF récapitulatif, généré au moment de l'envoi
+  // de l'évaluation (pas à la demande de téléchargement).
+  fichierRapport String?          @map("fichier_rapport")
   createdAt DateTime            @default(now()) @map("created_at")
   updatedAt DateTime?           @updatedAt @map("updated_at")
 
-  emploi Emploi @relation(fields: [emploiId], references: [id], onDelete: Cascade)
-  author User   @relation("SupervisionNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  emploi      Emploi?      @relation(fields: [emploiId], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  author      User         @relation("SupervisionNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([emploiId])
+  @@index([applicationId])
   @@map("supervision_notes")
 }
 

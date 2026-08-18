@@ -3,6 +3,12 @@ export type UserRole = "admin" | "rh" | "candidat" | "superviseur";
 export type OfferType = "stage" | "emploi";
 export type OfferStatus = "brouillon" | "publiee" | "fermee";
 
+export type OfferDocumentRequirement = {
+  nom: string;
+  obligatoire: boolean;
+  description?: string;
+};
+
 export type ApplicationStatus =
   | "envoyee"
   | "en_cours_analyse"

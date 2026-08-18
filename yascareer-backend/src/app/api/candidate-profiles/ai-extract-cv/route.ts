@@ -3,7 +3,7 @@ import { requireRole } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { StorageService } from "@/server/services/storage";
 import { DocumentReaderService } from "@/server/services/document-reader";
-import { AiService } from "@/server/services/ai";
+import { AiService, InvalidCvDocumentError } from "@/server/services/ai";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,9 +18,15 @@ export const POST = handler(async (req) => {
   const read = await DocumentReaderService.readUpload(cvUrl);
   const text = read?.text || "";
 
-  const extracted = text
-    ? await AiService.extractCv(text)
-    : { bio: null, skills: [] as string[], experiences: [], formations: [] };
+  let extracted;
+  try {
+    extracted = text
+      ? await AiService.extractCv(text)
+      : { bio: null, skills: [] as string[], experiences: [], formations: [] };
+  } catch (error) {
+    if (error instanceof InvalidCvDocumentError) throw badRequest(error.message);
+    throw error;
+  }
 
   const profile = await prisma.candidateProfile.upsert({
     where: { userId: user.id },

@@ -94,16 +94,23 @@ export const MailService = {
     );
   },
 
-  sendAvailabilityRequestEmail(supervisor: User, candidateName: string, offerTitle: string) {
+  /**
+   * Demande de disponibilité générique (page Entretiens, non liée à une
+   * candidature). Volontairement générique — le message rédigé par le RH
+   * n'est pas dupliqué ici, il est persisté sur l'InterviewRequest et
+   * consultable une fois connecté ; l'email ne sert qu'à notifier + rediriger.
+   */
+  sendGenericAvailabilityRequestEmail(supervisor: User) {
     const url = `${env.FRONTEND_URL.replace(/\/$/, "")}/superviseur/disponibilites`;
     void send(
       supervisor.email,
-      `Disponibilité demandée — entretien avec ${candidateName}`,
+      "Demande de disponibilité — entretiens YasCareer",
       wrap(
         "Demande de disponibilité",
-        `<p>Bonjour ${supervisor.fullName || ""},</p>
-         <p>Le RH souhaite organiser un entretien avec <strong>${candidateName}</strong> pour « ${offerTitle} » et vous sollicite comme superviseur.</p>
-         ${button(url, "Répondre à la demande")}`
+        `<p>Vous avez une demande de disponibilité en attente. Veuillez vous connecter à
+         votre espace superviseur pour choisir vos créneaux disponibles pour la
+         programmation des entretiens.</p>
+         ${button(url, "Choisir mes créneaux")}`
       )
     );
   },
@@ -198,9 +205,22 @@ export const MailService = {
   sendAvailabilityResponseEmail(
     rhUser: { email: string; fullName: string | null },
     supervisorName: string,
-    offerTitle: string,
-    status: "disponible" | "indisponible"
+    status: "disponible" | "indisponible",
+    options?: {
+      /** Contexte legacy (demande liée à une candidature) — absent pour les demandes génériques. */
+      offerTitle?: string | null;
+      slots?: { date: string; start: string; end: string }[] | null;
+    }
   ) {
+    const url = `${env.FRONTEND_URL.replace(/\/$/, "")}/rh/entretiens?tab=a_traiter`;
+    const context = options?.offerTitle ? ` pour « ${options.offerTitle} »` : "";
+    const slots = options?.slots ?? [];
+    const slotsHtml =
+      slots.length > 0
+        ? `<p>Créneaux disponibles :</p>
+           <ul>${slots.map((s) => `<li>${s.date} — ${s.start} à ${s.end}</li>`).join("")}</ul>`
+        : "";
+
     void send(
       rhUser.email,
       `Réponse de disponibilité — ${supervisorName}`,
@@ -209,7 +229,9 @@ export const MailService = {
         `<p>Bonjour ${rhUser.fullName || ""},</p>
          <p><strong>${supervisorName}</strong> a répondu <strong>${
            status === "disponible" ? "disponible" : "indisponible"
-         }</strong> pour l'entretien concernant <strong>${offerTitle}</strong>.</p>`
+         }</strong>${context}.</p>
+         ${slotsHtml}
+         ${button(url, "Voir dans l'application")}`
       )
     );
   },

@@ -29,10 +29,16 @@ export const PATCH = handler(async (req) => {
       userId: user.id,
       bio: payload.bio ?? null,
       skills: payload.skills ?? null,
+      anneesEtude: payload.anneesEtude ?? null,
+      ville: payload.ville ?? null,
+      quartier: payload.quartier ?? null,
     },
     update: {
       ...(payload.bio !== undefined ? { bio: payload.bio } : {}),
       ...(payload.skills !== undefined ? { skills: payload.skills } : {}),
+      ...(payload.anneesEtude !== undefined ? { anneesEtude: payload.anneesEtude } : {}),
+      ...(payload.ville !== undefined ? { ville: payload.ville } : {}),
+      ...(payload.quartier !== undefined ? { quartier: payload.quartier } : {}),
     },
   });
 

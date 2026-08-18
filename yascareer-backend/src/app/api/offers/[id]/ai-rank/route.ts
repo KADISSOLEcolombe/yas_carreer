@@ -148,7 +148,9 @@ export const POST = handler(
         application,
         offer,
         dossier.dossierText,
-        webText
+        webText,
+        undefined,
+        dossier.cv?.text
       );
       const grade = scoreToGrade(result.score);
 

@@ -6,8 +6,10 @@ import type { NextConfig } from "next";
 const allowedOrigin = process.env.FRONTEND_URL || "*";
 
 const nextConfig: NextConfig = {
-  // pdf-parse & mammoth are server-only; keep them out of the bundle.
-  serverExternalPackages: ["pdf-parse", "mammoth"],
+  // pdf-parse, mammoth & pdfkit are server-only; keep them out of the bundle
+  // (pdfkit loads its .afm font files via paths relative to its own
+  // node_modules folder — bundling breaks that at runtime).
+  serverExternalPackages: ["pdf-parse", "mammoth", "pdfkit"],
 
   async headers() {
     return [

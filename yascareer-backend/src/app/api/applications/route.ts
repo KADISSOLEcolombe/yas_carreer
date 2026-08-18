@@ -5,11 +5,17 @@ import { applicationStoreValidator } from "@/server/validators";
 import { prisma } from "@/server/db";
 import { sanitize } from "@/server/serialize";
 import { StorageService } from "@/server/services/storage";
+import { DocumentReaderService } from "@/server/services/document-reader";
+import { assessCvText, assessCoverLetterText } from "@/server/services/ai";
 import { ApplicationStatusService } from "@/server/services/application-status";
 import { NotificationService } from "@/server/services/notification";
 import { MailService } from "@/server/services/mail";
 import { runAiAnalyze } from "@/server/run-ai-analyze";
-import { isOfferExpired, type ApplicationStatus } from "@/server/domain";
+import {
+  isOfferExpired,
+  type ApplicationStatus,
+  type OfferDocumentRequirement,
+} from "@/server/domain";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -29,7 +35,42 @@ export const GET = handler(async (req) => {
   return ok(sanitize(applications));
 });
 
-// Candidate: submit an application (multipart with optional cv/coverLetter files).
+/**
+ * Résout un document exigé pour la candidature : soit un nouveau fichier
+ * téléversé pour cette candidature précise (clé `fileKey`), soit une
+ * référence vers un document déjà enregistré dans le profil du candidat
+ * (clé `idKey`, id de CandidateDocument — dont on vérifie la propriété).
+ * Retourne `null` si ni l'un ni l'autre n'a été fourni.
+ */
+async function resolveDocument(
+  form: FormData,
+  fileKey: string,
+  idKey: string,
+  userId: number,
+  folder: string,
+  label: string
+): Promise<string | null> {
+  const file = form.get(fileKey);
+  if (file instanceof File && file.size) {
+    return StorageService.saveUpload(file, folder);
+  }
+  const idRaw = form.get(idKey);
+  if (idRaw) {
+    const id = Number(idRaw);
+    const doc = await prisma.candidateDocument.findUnique({ where: { id } });
+    if (!doc || doc.userId !== userId) {
+      throw badRequest(`Document invalide : ${label}`);
+    }
+    return doc.url;
+  }
+  return null;
+}
+
+// Candidate: submit an application. Chaque document exigé (CV, lettre de
+// motivation, documents complémentaires de l'offre) est fourni soit par un
+// nouveau fichier propre à cette candidature, soit par référence à un
+// document déjà enregistré dans "Mes documents" — jamais récupéré
+// automatiquement sans action explicite du candidat.
 export const POST = handler(async (req) => {
   const user = await requireRole(req, ["candidat"]);
   const form = await req.formData();
@@ -52,17 +93,54 @@ export const POST = handler(async (req) => {
   });
   if (existing) throw conflict("Vous avez déjà postulé à cette offre");
 
-  let cvUrl: string | null = null;
-  let coverLetterUrl: string | null = null;
-  const cv = form.get("cv");
-  const cover = form.get("coverLetter");
-  if (cv instanceof File && cv.size) cvUrl = await StorageService.saveUpload(cv, "cv");
-  if (cover instanceof File && cover.size)
-    coverLetterUrl = await StorageService.saveUpload(cover, "cover");
+  const cvUrl = await resolveDocument(form, "cv", "cvDocumentId", user.id, "cv", "CV");
+  if (!cvUrl) throw badRequest("Le CV est requis (sélectionnez-en un ou téléversez-en un nouveau)");
 
-  if (!cvUrl) {
-    const profile = await prisma.candidateProfile.findUnique({ where: { userId: user.id } });
-    cvUrl = profile?.cvUrl || null;
+  const coverLetterUrl = await resolveDocument(
+    form,
+    "coverLetter",
+    "coverLetterDocumentId",
+    user.id,
+    "cover",
+    "Lettre de motivation"
+  );
+  if (!coverLetterUrl) {
+    throw badRequest(
+      "La lettre de motivation est requise (sélectionnez-en une ou téléversez-en une nouvelle)"
+    );
+  }
+
+  // Garde-fou serveur : même si la vérification côté formulaire a été
+  // contournée (appel direct à l'API, document changé après coup…), un CV ou
+  // une lettre qui ne ressemble pas à un vrai document du bon type ne doit
+  // jamais entrer dans le système — ni être vu par le RH, ni analysé par l'IA.
+  const cvText = (await DocumentReaderService.readUpload(cvUrl))?.text || "";
+  const cvCheck = assessCvText(cvText);
+  if (!cvCheck.valid) throw badRequest(cvCheck.message);
+
+  const coverLetterFileText =
+    (await DocumentReaderService.readUpload(coverLetterUrl))?.text || "";
+  const coverLetterCheck = assessCoverLetterText(coverLetterFileText);
+  if (!coverLetterCheck.valid) throw badRequest(coverLetterCheck.message);
+
+  let documentsUrls: Record<string, string> | null = null;
+  const documentRequirements = (offer.documentsRequis ?? []) as unknown as OfferDocumentRequirement[];
+  for (const requirement of documentRequirements) {
+    const url = await resolveDocument(
+      form,
+      `doc:${requirement.nom}`,
+      `docId:${requirement.nom}`,
+      user.id,
+      "documents",
+      requirement.nom
+    );
+    if (!url) {
+      if (requirement.obligatoire) {
+        throw badRequest(`Document requis manquant : ${requirement.nom}`);
+      }
+      continue;
+    }
+    documentsUrls = { ...(documentsUrls || {}), [requirement.nom]: url };
   }
 
   const application = await prisma.application.create({
@@ -72,6 +150,7 @@ export const POST = handler(async (req) => {
       cvUrl,
       coverLetterUrl,
       coverLetterText: payload.coverLetterText || null,
+      documentsUrls: documentsUrls ?? undefined,
       status: "envoyee",
       appliedAt: new Date(),
     },

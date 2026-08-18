@@ -61,7 +61,9 @@ export async function runAiAnalyze(
       application,
       offer,
       dossier.dossierText,
-      webText
+      webText,
+      undefined,
+      dossier.cv?.text
     );
 
     await prisma.application.update({

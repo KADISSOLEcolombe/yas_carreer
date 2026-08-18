@@ -229,6 +229,150 @@ function fallbackScore(
   };
 }
 
+/**
+ * L'IA (en particulier un modèle Ollama local) ne respecte pas toujours
+ * strictement le schéma demandé — il arrive qu'elle renvoie un objet
+ * structuré (ex. { nom, option, établissement, année_academique }) là où une
+ * simple chaîne de texte est attendue. On normalise donc chaque champ dès
+ * l'extraction, pour ne jamais stocker en base une donnée qui ne correspond
+ * pas au type déclaré (et casserait l'affichage ailleurs dans l'app).
+ */
+function normalizeTextEntry(entry: unknown): string | null {
+  if (typeof entry === "string") {
+    const trimmed = entry.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (entry && typeof entry === "object") {
+    const o = entry as Record<string, unknown>;
+    const parts = [
+      o.nom ?? o.titre ?? o.poste ?? o.diplome ?? o.diplôme,
+      o.option,
+      o.établissement ?? o.etablissement ?? o.entreprise ?? o.ecole ?? o.école,
+      o.année_academique ??
+        o.annee_academique ??
+        o.periode ??
+        o.période ??
+        o.année ??
+        o.annee,
+    ].filter((p): p is string => typeof p === "string" && p.trim().length > 0);
+    if (parts.length > 0) return parts.join(" — ");
+    try {
+      return JSON.stringify(o);
+    } catch {
+      return null;
+    }
+  }
+  return entry == null ? null : String(entry);
+}
+
+function normalizeTextArray(value: unknown, max = 12): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(normalizeTextEntry)
+    .filter((s): s is string => s != null)
+    .slice(0, max);
+}
+
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export const INVALID_CV_MESSAGE =
+  "Ce document ne semble pas être un CV valide. Veuillez vérifier le fichier téléversé.";
+
+export class InvalidCvDocumentError extends Error {
+  constructor() {
+    super(INVALID_CV_MESSAGE);
+    this.name = "InvalidCvDocumentError";
+  }
+}
+
+/**
+ * Heuristique légère (aucun appel IA) pour filtrer, avant extraction/scoring,
+ * les documents qui ne sont manifestement pas un CV (rapport, facture, page
+ * quelconque…). On exige soit 2+ sections typiques d'un CV (expérience,
+ * formation, compétences...), soit 1 section + des coordonnées détectables —
+ * un seuil volontairement permissif pour ne pas rejeter de vrais CV atypiques.
+ */
+const CV_SECTION_HINTS: RegExp[] = [
+  /exp[ée]rience(s)?\s*(professionnelle|pro)?/i,
+  /parcours\s+professionnel/i,
+  /formation(s)?/i,
+  /dipl[oô]me/i,
+  /cursus/i,
+  /comp[ée]tence(s)?/i,
+  /curriculum\s+vitae/i,
+  /profil(\s+professionnel)?/i,
+  /coordonn[ée]es/i,
+  /langue(s)?\s*(parl[ée]e|maitris[ée]e)?/i,
+  /stage(s)?/i,
+  /r[ée]f[ée]rence(s)?/i,
+  /centres?\s+d.int[ée]r[eê]t/i,
+];
+
+function hasContactInfo(text: string): boolean {
+  const email = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text);
+  const phone = /(?:\+?228[\s.-]?)?(?:\d[\s.-]?){8,12}/.test(text);
+  return email || phone;
+}
+
+function looksLikeCv(text: string): boolean {
+  const clean = (text || "").trim();
+  if (clean.length < 120) return false;
+  const hits = CV_SECTION_HINTS.filter((re) => re.test(clean)).length;
+  return hits >= 2 || (hits >= 1 && hasContactInfo(clean));
+}
+
+// Même logique que CV_SECTION_HINTS mais pour une lettre de motivation :
+// formules d'appel/de politesse, objet de candidature, tournures typiques —
+// des signaux quasi absents d'un CV, d'un rapport ou d'un document quelconque.
+const COVER_LETTER_HINTS: RegExp[] = [
+  /objet\s*:?\s*candidature/i,
+  /madame,?\s*monsieur/i,
+  /à\s+l['’]attention\s+de/i,
+  /je\s+me\s+permets/i,
+  /je\s+vous\s+adresse/i,
+  /candidature\s+(au|pour\s+le|à\s+l['’])\s*poste/i,
+  /motiv[ée]?\s+(par|pour|à)/i,
+  /veuillez\s+agr[ée]er/i,
+  /dans\s+l['’]attente/i,
+  /cordialement/i,
+  /je\s+vous\s+prie/i,
+  /lettre\s+de\s+motivation/i,
+];
+
+function looksLikeCoverLetter(text: string): boolean {
+  const clean = (text || "").trim();
+  if (clean.length < 100) return false;
+  const hits = COVER_LETTER_HINTS.filter((re) => re.test(clean)).length;
+  return hits >= 2;
+}
+
+/**
+ * Points d'entrée réutilisables pour vérifier un document AVANT de l'envoyer
+ * plus loin dans le système (formulaire de candidature) — même heuristique
+ * que celle utilisée pendant l'extraction/le scoring IA, exposée ici pour ne
+ * pas la dupliquer.
+ */
+export function assessCvText(text: string): { valid: boolean; message: string } {
+  if (looksLikeCv(text)) return { valid: true, message: "" };
+  return {
+    valid: false,
+    message: "Ce fichier ne ressemble pas à un CV valide, veuillez vérifier votre document.",
+  };
+}
+
+export function assessCoverLetterText(text: string): { valid: boolean; message: string } {
+  if (looksLikeCoverLetter(text)) return { valid: true, message: "" };
+  return {
+    valid: false,
+    message:
+      "Ce fichier ne ressemble pas à une lettre de motivation valide, veuillez vérifier votre document.",
+  };
+}
+
 function fallbackExtractCv(text: string): CvExtraction {
   const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   const phoneMatch = text.match(/(?:\+?228[\s.-]?)?(?:\d[\s.-]?){8,12}/);
@@ -270,8 +414,21 @@ export const AiService = {
     offer: Offer,
     dossierText?: string,
     webResearchText?: string,
-    rhCriteria?: string | null
+    rhCriteria?: string | null,
+    cvText?: string
   ): Promise<MatchResult> {
+    if (cvText && cvText.trim().length > 0 && !looksLikeCv(cvText)) {
+      return {
+        score: 0,
+        summary: INVALID_CV_MESSAGE,
+        strengths: [],
+        gaps: [
+          "Document fourni non reconnu comme un CV (coordonnées, expérience, formation ou compétences absentes ou insuffisantes)",
+        ],
+        recommendation: "ecarter",
+      };
+    }
+
     const dossier =
       dossierText?.trim() ||
       `Lettre: ${application.coverLetterText || "n/a"}\nCV url: ${application.cvUrl || "n/a"}`;
@@ -365,6 +522,10 @@ ${dossier.slice(0, 12000)}${webBlock}`
   },
 
   async extractCv(text: string): Promise<CvExtraction> {
+    if (text && text.trim().length > 0 && !looksLikeCv(text)) {
+      throw new InvalidCvDocumentError();
+    }
+
     const fallback = fallbackExtractCv(text);
     if (!isConfigured()) return fallback;
 
@@ -383,18 +544,21 @@ JSON strict avec:
 - formations (string[])`,
         text.slice(0, 12000)
       );
+      // `parsed` vient d'un JSON.parse() sur une réponse de modèle IA : on ne
+      // lui fait pas confiance tel quel malgré le cast `as CvExtraction` —
+      // chaque champ est validé/normalisé avant d'être renvoyé.
       const parsed = JSON.parse(raw) as CvExtraction;
+      const skills = normalizeTextArray(parsed.skills, 12);
+      const experiences = normalizeTextArray(parsed.experiences, 12);
+      const formations = normalizeTextArray(parsed.formations, 12);
       return {
-        fullName: parsed.fullName || fallback.fullName,
-        email: parsed.email || fallback.email,
-        phone: parsed.phone || fallback.phone,
-        bio: parsed.bio || fallback.bio,
-        skills:
-          Array.isArray(parsed.skills) && parsed.skills.length
-            ? parsed.skills
-            : fallback.skills,
-        experiences: Array.isArray(parsed.experiences) ? parsed.experiences : [],
-        formations: Array.isArray(parsed.formations) ? parsed.formations : [],
+        fullName: normalizeString(parsed.fullName) || fallback.fullName,
+        email: normalizeString(parsed.email) || fallback.email,
+        phone: normalizeString(parsed.phone) || fallback.phone,
+        bio: normalizeString(parsed.bio) || fallback.bio,
+        skills: skills.length ? skills : fallback.skills,
+        experiences,
+        formations,
         raw: text.slice(0, 2000),
       };
     } catch (error) {

@@ -26,6 +26,7 @@
     "nodemailer": "^9.0.4",
     "openai": "^5.12.0",
     "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.19.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "zod": "^4.4.3"
@@ -36,6 +37,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.22",

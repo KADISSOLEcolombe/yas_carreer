@@ -11,7 +11,11 @@ export const GET = handler(async (req) => {
   const user = await requireRole(req, ["superviseur"]);
   const emplois = await prisma.emploi.findMany({
     where: { supervisorId: user.id },
-    include: { application: { include: { offer: true } }, user: true },
+    include: {
+      application: { include: { offer: true } },
+      user: true,
+      supervisionNotes: { orderBy: { createdAt: "desc" } },
+    },
     orderBy: { startDate: "desc" },
   });
   return ok(sanitize(emplois));

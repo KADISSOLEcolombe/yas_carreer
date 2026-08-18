@@ -12,7 +12,10 @@ export const runtime = "nodejs";
 export const GET = handler(
   async (req, ctx: { params: Promise<{ id: string }> }) => {
     const { id } = await ctx.params;
-    const offer = await prisma.offer.findUnique({ where: { id: Number(id) } });
+    const offer = await prisma.offer.findUnique({
+      where: { id: Number(id) },
+      include: { departement: true },
+    });
     if (!offer) throw notFound("Offre introuvable");
     const user = await currentUser(req);
     if (offer.status !== "publiee" && (!user || user.role === "candidat")) {
@@ -45,7 +48,12 @@ export const PUT = handler(
         ...(payload.aiAnalysisCriteria !== undefined
           ? { aiAnalysisCriteria: payload.aiAnalysisCriteria?.trim() || null }
           : {}),
+        ...(payload.documentsRequis !== undefined
+          ? { documentsRequis: payload.documentsRequis }
+          : {}),
+        departementId: payload.departementId,
       },
+      include: { departement: true },
     });
 
     if (!wasPublished && updated.status === "publiee") {

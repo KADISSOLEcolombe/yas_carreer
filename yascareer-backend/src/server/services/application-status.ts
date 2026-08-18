@@ -14,7 +14,7 @@ export const ApplicationStatusService = {
     application: Application,
     nextStatus: ApplicationStatus,
     changedBy: User,
-    options: { force?: boolean; silent?: boolean } = {}
+    options: { force?: boolean; silent?: boolean; note?: string } = {}
   ): Promise<Application> {
     const current = application.status as ApplicationStatus;
     if (
@@ -36,6 +36,7 @@ export const ApplicationStatusService = {
       data: {
         applicationId: application.id,
         status: nextStatus,
+        note: options.note || null,
         changedBy: changedBy.id,
         changedAt: new Date(),
       },

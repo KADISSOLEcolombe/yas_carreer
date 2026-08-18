@@ -35,6 +35,47 @@ async function extractDocx(buffer: Buffer): Promise<string> {
 }
 
 export const DocumentReaderService = {
+  /**
+   * Extrait le texte d'un buffer déjà en mémoire (ex. fichier tout juste
+   * sélectionné par le candidat, pas encore enregistré sur disque) — utilisé
+   * pour une vérification immédiate côté formulaire avant même l'upload.
+   */
+  async readBuffer(
+    buffer: Buffer,
+    filename: string
+  ): Promise<{ text: string; imageCount: number; error?: string }> {
+    const ext = extname(filename).toLowerCase();
+    try {
+      if (ext === ".pdf") {
+        const { text } = await extractPdf(buffer);
+        return { text: text.slice(0, 20000), imageCount: 0 };
+      }
+      if (ext === ".docx") {
+        const text = await extractDocx(buffer);
+        return { text: text.slice(0, 20000), imageCount: 0 };
+      }
+      if (ext === ".doc") {
+        const raw = buffer
+          .toString("utf8")
+          .replace(/[^\x09\x0A\x0D\x20-\x7EÀ-ɏ]/g, " ");
+        const text = raw.replace(/\s+/g, " ").trim().slice(0, 8000);
+        return {
+          text,
+          imageCount: 0,
+          error: text.length < 40 ? "Lecture .doc limitée" : undefined,
+        };
+      }
+      return { text: buffer.toString("utf8").slice(0, 8000), imageCount: 0 };
+    } catch (error) {
+      console.warn("[document-reader] buffer read failed:", filename, error);
+      return {
+        text: "",
+        imageCount: 0,
+        error: (error as Error).message || "Lecture impossible",
+      };
+    }
+  },
+
   async readUpload(
     url: string | null | undefined
   ): Promise<DocumentReadResult | null> {
@@ -46,29 +87,8 @@ export const DocumentReaderService = {
 
     try {
       const buffer = await readFile(absolute);
-      const ext = extname(absolute).toLowerCase();
-
-      if (ext === ".pdf") {
-        const { text } = await extractPdf(buffer);
-        return { text: text.slice(0, 20000), source: url, imageCount: 0 };
-      }
-      if (ext === ".docx") {
-        const text = await extractDocx(buffer);
-        return { text: text.slice(0, 20000), source: url, imageCount: 0 };
-      }
-      if (ext === ".doc") {
-        const raw = buffer
-          .toString("utf8")
-          .replace(/[^\x09\x0A\x0D\x20-\x7E\u00C0-\u024F]/g, " ");
-        const text = raw.replace(/\s+/g, " ").trim().slice(0, 8000);
-        return {
-          text,
-          source: url,
-          imageCount: 0,
-          error: text.length < 40 ? "Lecture .doc limitée" : undefined,
-        };
-      }
-      return { text: buffer.toString("utf8").slice(0, 8000), source: url, imageCount: 0 };
+      const result = await this.readBuffer(buffer, absolute);
+      return { ...result, source: url };
     } catch (error) {
       console.warn("[document-reader] read failed:", url, error);
       return {

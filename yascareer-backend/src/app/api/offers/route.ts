@@ -48,6 +48,7 @@ export const GET = handler(async (req) => {
 
   const offers = await prisma.offer.findMany({
     where,
+    include: { departement: true },
     orderBy: { createdAt: "desc" },
   });
   return ok(offers);
@@ -68,6 +69,8 @@ export const POST = handler(async (req) => {
       status: payload.status || "brouillon",
       createdBy: user.id,
       aiAnalysisCriteria: payload.aiAnalysisCriteria?.trim() || null,
+      documentsRequis: payload.documentsRequis || [],
+      departementId: payload.departementId,
     },
   });
 

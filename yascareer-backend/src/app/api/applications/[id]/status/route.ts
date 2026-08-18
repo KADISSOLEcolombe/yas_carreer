@@ -24,7 +24,10 @@ export const PATCH = handler(
 
     try {
       await ApplicationStatusService.changeStatus(application, payload.status, actor, {
-        force: payload.force,
+        // "force" ne peut sauter des étapes que pour un admin — un RH reste
+        // toujours contraint par la machine à états, même via un appel API direct.
+        force: actor.role === "admin" && payload.force === true,
+        note: payload.note,
       });
     } catch (error) {
       if (error instanceof HttpError) throw error;

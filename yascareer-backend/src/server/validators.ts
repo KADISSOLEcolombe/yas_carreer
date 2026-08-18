@@ -56,6 +56,9 @@ export const updateProfileValidator = z.object({
   phone: z.string().trim().max(30).nullish(),
   bio: z.string().max(2000).nullish(),
   skills: z.string().max(2000).nullish(),
+  anneesEtude: z.string().trim().max(30).nullish(),
+  ville: z.string().trim().max(100).nullish(),
+  quartier: z.string().trim().max(100).nullish(),
 });
 
 export const createUserValidator = z.object({
@@ -81,8 +84,18 @@ export const updateRoleValidator = z.object({
   role: z.enum(["admin", "rh", "superviseur"]),
 });
 
+export const updateDepartementValidator = z.object({
+  departementId: z.number().int().positive().nullable(),
+});
+
 export const updateStatusValidator = z.object({
   isActive: z.boolean(),
+});
+
+export const documentRequirementValidator = z.object({
+  nom: z.string().trim().min(1).max(120),
+  obligatoire: z.boolean(),
+  description: z.string().trim().max(300).optional(),
 });
 
 export const offerValidator = z.object({
@@ -94,6 +107,11 @@ export const offerValidator = z.object({
   location: z.string().max(120).optional(),
   status: z.enum(["brouillon", "publiee", "fermee"]).optional(),
   aiAnalysisCriteria: z.string().trim().max(4000).optional(),
+  documentsRequis: z.array(documentRequirementValidator).max(10).optional(),
+  // Obligatoire pour toute nouvelle création/modification d'offre ; les
+  // offres créées avant cette règle restent en base sans département
+  // (aucune migration forcée), seule l'écriture est désormais bloquée.
+  departementId: z.number().int().positive(),
 });
 
 export const offerAiCriteriaValidator = z.object({
@@ -132,6 +150,15 @@ export const applicationStatusValidator = z.object({
     "rejetee",
   ]),
   force: z.boolean().optional(),
+  note: z.string().trim().max(1000).optional(),
+});
+
+export const applicationNoteValidator = z.object({
+  content: z.string().trim().min(2).max(4000),
+});
+
+export const candidateDocumentValidator = z.object({
+  label: z.string().trim().min(1).max(120),
 });
 
 export const notifyCandidatesValidator = z.object({
@@ -164,14 +191,24 @@ export const interviewOutcomeValidator = z.object({
   notes: z.string().max(2000).nullish(),
 });
 
-export const interviewRequestValidator = z.object({
-  applicationId: z.coerce.number().int(),
-  supervisorId: z.coerce.number().int(),
+export const availableSlotValidator = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide (AAAA-MM-JJ)"),
+  start: z.string().regex(/^\d{2}:\d{2}$/, "Heure invalide (HH:MM)"),
+  end: z.string().regex(/^\d{2}:\d{2}$/, "Heure invalide (HH:MM)"),
 });
 
 export const interviewRequestRespondValidator = z.object({
   status: z.enum(["disponible", "indisponible"]),
   availabilityNote: z.string().trim().max(1000).optional(),
+  availableSlots: z.array(availableSlotValidator).max(50).optional(),
+});
+
+// Demande de disponibilité générique (page Entretiens) : ne concerne aucune
+// candidature précise, juste une collecte de créneaux auprès de superviseurs.
+export const requestAvailabilityValidator = z.object({
+  supervisorIds: z.array(z.coerce.number().int()).min(1).max(50),
+  proposedSlots: z.array(availableSlotValidator).min(1).max(100),
+  message: z.string().trim().min(1).max(4000),
 });
 
 export const emploiValidator = z.object({
@@ -183,13 +220,23 @@ export const emploiValidator = z.object({
   endDate: z.string().optional(),
 });
 
-export const supervisionNoteValidator = z.object({
-  emploiId: z.coerce.number().int(),
+export const supervisionNoteBaseValidator = z.object({
+  emploiId: z.coerce.number().int().optional(),
+  applicationId: z.coerce.number().int().optional(),
   type: z.enum(["rapport", "evaluation", "observation"]),
   title: z.string().trim().max(200).optional(),
   content: z.string().trim().min(2).max(8000),
   rating: z.coerce.number().int().min(1).max(5).optional(),
+  recommendation: z.enum(["favorable", "a_revoir", "defavorable"]).optional(),
 });
+
+export const supervisionNoteValidator = supervisionNoteBaseValidator.refine(
+  (d) => Boolean(d.emploiId) !== Boolean(d.applicationId),
+  {
+    message: "Renseignez soit emploiId (suivi collaborateur), soit applicationId (évaluation d'entretien), pas les deux",
+    path: ["emploiId"],
+  }
+);
 
 export const chatbotValidator = z.object({
   message: z.string().trim().min(2).max(2000),
