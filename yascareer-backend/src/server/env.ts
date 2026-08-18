@@ -9,17 +9,20 @@ export const env = {
   get FRONTEND_URL() {
     return process.env.FRONTEND_URL || "http://localhost:3000";
   },
-  /** Ollama OpenAI-compatible endpoint, e.g. http://localhost:11434/v1 */
-  get OLLAMA_URL() {
-    return process.env.OLLAMA_URL || undefined;
+  /** RodiumAI secret key (`rd_sk_…`). Absent → fallback heuristique. */
+  get RODIUMAI_API_KEY() {
+    return process.env.RODIUMAI_API_KEY || undefined;
   },
-  /** Optional bearer token if Ollama sits behind an auth proxy. */
-  get OLLAMA_API_KEY() {
-    return process.env.OLLAMA_API_KEY || undefined;
+  /** OpenAI-compatible base URL. Default: https://api.rodiumai.io/v1 */
+  get RODIUMAI_BASE_URL() {
+    return process.env.RODIUMAI_BASE_URL || "https://api.rodiumai.io/v1";
   },
-  /** Model tag pulled into Ollama (e.g. `ollama pull llama3.1`). */
-  get OLLAMA_MODEL() {
-    return process.env.OLLAMA_MODEL || "llama3.1";
+  /**
+   * Provider-scoped model id, e.g. `openai/gpt-4o-mini`, `rodiumai/smart`.
+   * Catalogue: GET https://api.rodiumai.io/v1/models
+   */
+  get RODIUMAI_MODEL() {
+    return process.env.RODIUMAI_MODEL || "openai/gpt-4o-mini";
   },
   get TAVILY_API_KEY() {
     return process.env.TAVILY_API_KEY || undefined;

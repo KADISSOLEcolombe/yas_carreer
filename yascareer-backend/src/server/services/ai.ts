@@ -41,14 +41,143 @@ export function scoreToGrade(score: number): RankGrade {
   return "E";
 }
 
-const FAQ_CONTEXT = `
-YasCareer est la plateforme de recrutement de Yas Togo.
-- Les candidats s'inscrivent, consultent les offres (stage/emploi), postulent avec CV et lettre.
-- Ils suivent le statut : envoyée → en cours d'analyse → entretien programmé → acceptée/rejetée.
-- Les entretiens peuvent être présentiels ou distanciels (lien Meet/Zoom fourni par le RH).
-- Le RH gère offres, candidatures et entretiens. L'admin gère les comptes utilisateurs.
-Réponds uniquement sur le fonctionnement de YasCareer, en français, de façon concise et utile.
-`;
+const YAS_TOGO_CONTEXT = `Yas Togo (marque Yas) est un opérateur télécoms togolais, 1er réseau internet mobile au Togo et dans l'UEMOA, certifié Top Employer. Culture interne : « Let's grow together ». Recrutement via YasCareer : stages et emplois (IT, réseau/RAN/FTTH, commercial, relation client, RH, finance, marketing digital, cybersécurité). Lieux fréquents : Lomé, Kara, Atakpamé (Plateaux), Dapaong (Savanes).`;
+
+const PROMPT_ANALYZE_SYSTEM = `Tu es un recruteur senior Yas Togo. Tu évalues l'adéquation d'un candidat à une offre pour aider le RH — tu ne prends jamais la décision finale.
+
+${YAS_TOGO_CONTEXT}
+
+OBJECTIF
+Produire un jugement utile, concret et calibré. Un RH doit pouvoir prioriser en 10 secondes.
+
+BARÈME (applique-le, ne gonfle jamais un score par politesse)
+- 90–100 : quasi-parfait (compétences + expérience + motivation alignées ; critères RH satisfaits)
+- 75–89 : très bon profil, gaps mineurs, entretien recommandé
+- 55–74 : profil partiel, à considérer si le vivier est mince
+- 40–54 : écarts importants, seulement si pénurie de candidats
+- 0–39 : hors-cible, dossier trop pauvre, ou critère RH critique non rempli
+
+RECOMMANDATION
+- "retenir" : score ≥ 75 ET aucun critère RH critique manquant
+- "a_envisager" : 50–74, ou ≥ 75 avec un gap notable
+- "ecarter" : score < 50, dossier inexploitable, ou critère RH critique non satisfait
+
+RÈGLES
+- Base-toi UNIQUEMENT sur le dossier (CV, lettre, profil) et, si fournie, la recherche web.
+- Les CRITÈRES RH, s'ils existent, priment sur les compétences génériques de l'offre.
+- Une rumeur web n'est jamais un fait. Si rien de pertinent : webFindings = "rien de pertinent".
+- Dossier pauvre (CV vide, lettre générique, compétences absentes) → baisse nettement le score.
+- Ne confonds pas un stage avec un poste confirmé, ni l'inverse.
+- strengths / gaps : faits observables, pas de formules vagues (« bon profil », « motivé »).
+- summary : 2–3 phrases en français, ton RH, sans markdown.
+
+Réponds UNIQUEMENT en JSON valide, sans markdown, avec exactement :
+{"score":0,"summary":"","strengths":[],"gaps":[],"recommendation":"a_envisager","webFindings":"rien de pertinent"}
+- score : entier 0-100
+- summary : string
+- strengths : 2 à 5 strings
+- gaps : 0 à 4 strings
+- recommendation : "retenir" | "a_envisager" | "ecarter"
+- webFindings : string courte`;
+
+const PROMPT_RANKING_SYSTEM = `Tu es un RH Yas Togo qui prépare un briefing de sélection.
+
+${YAS_TOGO_CONTEXT}
+
+Rédige une synthèse décisionnelle en français (4 à 6 phrases, pas de markdown, pas de listes) :
+1. Qui interviewer en priorité (1–3 noms) et pourquoi, en une formule concrète.
+2. Qui est limite / à revoir seulement si le top se défile.
+3. Un risque ou un point d'attention (dossier incomplet, surqualification, gap critique).
+4. Rappelle que le score IA aide, il ne remplace pas la lecture des dossiers.
+
+Ton professionnel, direct, utile. N'invente aucun fait absent du classement fourni.`;
+
+const PROMPT_EXTRACT_CV_SYSTEM = `Tu es un extracteur de données RH. Tu préremplis un formulaire candidat YasCareer.
+
+MISSION
+Extraire UNIQUEMENT des faits EXPLICITES dans le texte du CV. Pas d'invention, pas de jugement, pas de score, pas de résumé recruteur.
+
+FORMAT JSON STRICT (pas de markdown, pas de texte hors JSON)
+{
+  "fullName": "Prénom NOM" | null,
+  "email": "email" | null,
+  "phone": "+228 …" | null,
+  "bio": "2–4 phrases factuelles (parcours + spécialité)" | null,
+  "skills": ["compétence1", "compétence2"],
+  "experiences": ["Poste — Entreprise — Période — 1 phrase de mission"],
+  "formations": ["Diplôme — Établissement — Année"]
+}
+
+RÈGLES
+- Si une info n'est pas dans le texte → null ou [].
+- skills : compétences réellement citées (outils, langages, métiers), 5 à 12 max, sans doublon, libellés courts.
+- experiences : CHAQUE item est UNE string unique (jamais un objet). Ordre du plus récent au plus ancien. 8 max.
+- formations : CHAQUE item est UNE string unique (jamais un objet). 6 max.
+- fullName : identité du candidat, pas le nom d'une école ou d'une entreprise.
+- phone : conserve l'indicatif s'il est présent.
+- Ignore photos, QR codes, mentions légales, « références sur demande ».`;
+
+const PROMPT_ASSIST_OFFER_SYSTEM = `Tu es l'assistant rédaction RH de Yas Togo. Tu transformes un brief (même oral, approximatif ou incomplet) en offre prête à publier sur YasCareer.
+
+${YAS_TOGO_CONTEXT}
+
+Réponds UNIQUEMENT en JSON valide, sans markdown, avec exactement ces clés :
+{
+  "title": "titre pro, max 90 caractères",
+  "type": "stage" | "emploi",
+  "description": "texte long structuré",
+  "requirements": "compétence1, compétence2, …",
+  "location": "ville/région au Togo",
+  "deadline": "YYYY-MM-DD"
+}
+
+DESCRIPTION — structure obligatoire, en français, ton Top Employer, concret (pas de jargon creux) :
+À propos de Yas Togo
+(1 court paragraphe)
+
+À propos du poste
+(ce que le brief demande, reformulé)
+
+Missions
+• 5 à 8 puces actionnables
+
+Profil recherché
+• formation / expérience
+• 4 à 8 compétences
+• qualités utiles au poste
+(si stage : préciser étudiant(e) / jeune diplômé(e) et durée si connue)
+
+Ce que nous offrons
+• environnement Top Employer, formation, impact au Togo, lieu
+
+RÈGLES
+- type = "stage" si le brief parle de stage/stagiaire/internship, sinon "emploi" (sauf consigne contraire).
+- title : intitulé de poste réel (ex. "Stage — Développeur Frontend React", "Chargé(e) de relation client"). Pas de phrase marketing.
+- requirements : 5 à 10 compétences séparées par des virgules, alignées au poste.
+- location : ville togolaise. Défaut Lomé si non précisé. Autres : Kara, Atakpamé (Plateaux), Dapaong (Savanes).
+- deadline : date ISO 15–45 jours après aujourd'hui.
+- N'invente pas de salaire, d'avantage chiffré ou d'outil non évoqué, sauf inférences réalistes télécoms/digital Yas.
+- Inclusif : formulations (e) quand c'est naturel.`;
+
+const PROMPT_CHATBOT_SYSTEM = `Tu es l'assistant YasCareer, la plateforme interne de recrutement de Yas Togo.
+
+${YAS_TOGO_CONTEXT}
+
+Ce que tu peux expliquer, uniquement :
+- Créer un compte / se connecter / activer le compte (lien reçu par email).
+- Consulter les offres (stage ou emploi), filtrer, postuler avec CV + lettre de motivation.
+- Suivre une candidature. Statuts : envoyée → en cours d'analyse → présélectionnée → entretien programmé → entretien réalisé → acceptée ou rejetée.
+- Entretiens : présentiel ou visio (lien Meet/Zoom fourni par le RH, visible dans « Mes entretiens »).
+- Espace candidat : profil, documents, candidatures, entretiens.
+- Espace RH : offres, candidatures, analyse IA, entretiens — seulement si l'utilisateur est RH/admin.
+- L'IA aide le RH (score, résumé) mais ne décide jamais à la place du recruteur.
+
+RÈGLES
+- Français, 2 à 6 phrases, clair, chaleureux, sans markdown sauf si une courte liste aide vraiment.
+- Si la question sort de YasCareer (politique, code, actualité, autre entreprise) : recentre poliment.
+- N'invente pas de fonctionnalité, de délai de réponse RH, ni de contact interne.
+- Ne demande jamais de mot de passe. Ne donne jamais de conseil pour contourner un process.
+- Si tu manques de contexte, pose UNE question précise.`;
 
 function addDaysIso(days: number): string {
   const d = new Date();
@@ -135,52 +264,129 @@ Ce que nous offrons
   return { title, type, description, requirements, location, deadline };
 }
 
-// Ollama exposes an OpenAI-compatible API. We reach it through the `openai`
-// SDK by pointing baseURL at the Ollama server (default http://localhost:11434/v1).
-// No API key is required for a local Ollama, so the SDK is given a dummy one.
+// RodiumAI is an OpenAI-compatible gateway (https://api.rodiumai.io/v1).
+// Auth: Bearer key with prefix rd_sk_… (env RODIUMAI_API_KEY).
 function client(): OpenAI | null {
-  const baseURL = env.OLLAMA_URL;
-  if (!baseURL) return null;
+  const apiKey = env.RODIUMAI_API_KEY;
+  if (!apiKey) return null;
   return new OpenAI({
-    baseURL,
-    apiKey: env.OLLAMA_API_KEY || "ollama",
+    baseURL: env.RODIUMAI_BASE_URL,
+    apiKey,
+    timeout: 90_000,
+    maxRetries: 2,
   });
 }
 
-async function chatJson(system: string, user: string): Promise<string> {
+function requireClient(): OpenAI {
   const ai = client();
-  if (!ai) throw new Error("OLLAMA_URL non configurée");
-  const completion = await ai.chat.completions.create({
-    model: env.OLLAMA_MODEL,
-    temperature: 0.2,
-    // Ollama honours OpenAI-style JSON mode; it forces valid JSON output.
-    response_format: { type: "json_object" },
+  if (!ai) throw new Error("RODIUMAI_API_KEY non configurée");
+  return ai;
+}
+
+function completionContent(completion: {
+  choices: Array<{ message?: { content?: unknown } | null }>;
+}): string {
+  const content = completion.choices[0]?.message?.content;
+  if (typeof content === "string") return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object" && "text" in part) {
+          return typeof part.text === "string" ? part.text : "";
+        }
+        return "";
+      })
+      .join("")
+      .trim();
+  }
+  return "";
+}
+
+function isJsonModeError(error: unknown): boolean {
+  const message = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  return (
+    message.includes("response_format") ||
+    message.includes("json_object") ||
+    message.includes("json mode")
+  );
+}
+
+async function chatJson(
+  system: string,
+  user: string,
+  options: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  const ai = requireClient();
+  const temperature = options.temperature ?? 0.15;
+  const max_tokens = options.maxTokens ?? 2500;
+  const messages = [
+    { role: "system" as const, content: system },
+    { role: "user" as const, content: user },
+  ];
+  try {
+    const completion = await ai.chat.completions.create({
+      model: env.RODIUMAI_MODEL,
+      temperature,
+      max_tokens,
+      response_format: { type: "json_object" },
+      messages,
+    });
+    return completionContent(completion) || "{}";
+  } catch (error) {
+    if (!isJsonModeError(error)) throw error;
+    console.warn("[ai] JSON mode unsupported, retrying without response_format");
+    const completion = await ai.chat.completions.create({
+      model: env.RODIUMAI_MODEL,
+      temperature,
+      max_tokens,
+      messages,
+    });
+    return completionContent(completion) || "{}";
+  }
+}
+
+async function chatText(
+  system: string,
+  user: string,
+  options: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  const completion = await requireClient().chat.completions.create({
+    model: env.RODIUMAI_MODEL,
+    temperature: options.temperature ?? 0.3,
+    max_tokens: options.maxTokens ?? 900,
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },
     ],
   });
-  return completion.choices[0]?.message?.content || "{}";
+  return completionContent(completion);
 }
 
-async function chatText(system: string, user: string): Promise<string> {
-  const ai = client();
-  if (!ai) throw new Error("OLLAMA_URL non configurée");
-  const completion = await ai.chat.completions.create({
-    model: env.OLLAMA_MODEL,
-    temperature: 0.3,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-  });
-  return completion.choices[0]?.message?.content || "";
+function parseJsonFromLlm<T>(raw: string): T {
+  const trimmed = raw.trim();
+  const candidates = [trimmed];
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) candidates.push(fenced[1].trim());
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start >= 0 && end > start) candidates.push(trimmed.slice(start, end + 1));
+
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as T;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Réponse IA non JSON");
 }
 
-// AI is "configured" as soon as an Ollama endpoint is set. When it isn't, every
-// method falls back to the heuristic implementations below.
+// AI is configured as soon as a RodiumAI key is set. Otherwise every method
+// falls back to the heuristic implementations below.
 function isConfigured() {
-  return Boolean(env.OLLAMA_URL);
+  return Boolean(env.RODIUMAI_API_KEY);
 }
 
 function fallbackScore(
@@ -230,12 +436,12 @@ function fallbackScore(
 }
 
 /**
- * L'IA (en particulier un modèle Ollama local) ne respecte pas toujours
- * strictement le schéma demandé — il arrive qu'elle renvoie un objet
- * structuré (ex. { nom, option, établissement, année_academique }) là où une
- * simple chaîne de texte est attendue. On normalise donc chaque champ dès
- * l'extraction, pour ne jamais stocker en base une donnée qui ne correspond
- * pas au type déclaré (et casserait l'affichage ailleurs dans l'app).
+ * Un LLM ne respecte pas toujours strictement le schéma demandé — il arrive
+ * qu'il renvoie un objet structuré (ex. { nom, option, établissement,
+ * année_academique }) là où une simple chaîne de texte est attendue. On
+ * normalise donc chaque champ dès l'extraction, pour ne jamais stocker en
+ * base une donnée qui ne correspond pas au type déclaré (et casserait
+ * l'affichage ailleurs dans l'app).
  */
 function normalizeTextEntry(entry: unknown): string | null {
   if (typeof entry === "string") {
@@ -433,11 +639,11 @@ export const AiService = {
       dossierText?.trim() ||
       `Lettre: ${application.coverLetterText || "n/a"}\nCV url: ${application.cvUrl || "n/a"}`;
     const webBlock = webResearchText?.trim()
-      ? `\n\nRecherche web (infos publiques):\n${webResearchText.trim().slice(0, 4000)}`
+      ? `\n\n<recherche_web>\n${webResearchText.trim().slice(0, 4000)}\n</recherche_web>`
       : "";
     const criteria = (rhCriteria ?? offer.aiAnalysisCriteria)?.trim() || "";
     const criteriaBlock = criteria
-      ? `\n\nCRITÈRES RH OBLIGATOIRES (à appliquer strictement pour le scoring et la recommandation):\n${criteria.slice(0, 4000)}\nPriorise ces critères RH face aux compétences génériques de l'offre. Si un critère critique n'est pas satisfait, baisse nettement le score et explique-le dans gaps.`
+      ? `\n<criteres_rh_obligatoires>\n${criteria.slice(0, 4000)}\nCes critères priment. Un critère critique non satisfait doit faire baisser nettement le score et apparaître dans gaps.\n</criteres_rh_obligatoires>`
       : "";
 
     if (!isConfigured()) {
@@ -447,27 +653,23 @@ export const AiService = {
 
     try {
       const raw = await chatJson(
-        `Tu es un expert RH Yas Togo. Analyse l'adéquation candidat / offre.
-Réponds UNIQUEMENT en JSON avec:
-- score (entier 0-100)
-- summary (2-3 phrases: points forts et points d'attention)
-- strengths (string[], 2 à 5)
-- gaps (string[], 0 à 4)
-- recommendation ("retenir" | "a_envisager" | "ecarter")
-- webFindings (string courte: apport de la recherche web, ou "rien de pertinent")
-Base-toi sur le dossier (CV, lettre, profil) ET les infos web publiques si disponibles.
-Si des critères RH sont fournis, ils sont prioritaires pour le score et la recommandation.
-Ne traite jamais une rumeur web comme un fait certain. Si le dossier est pauvre, baisse le score.`,
-        `Offre: ${offer.title}
+        PROMPT_ANALYZE_SYSTEM,
+        `<offre>
+Titre: ${offer.title}
 Type: ${offer.type}
-Lieu: ${offer.location || "n/a"}
-Description: ${offer.description.slice(0, 4000)}
-Compétences requises: ${offer.requirements || "n/a"}${criteriaBlock}
+Lieu: ${offer.location || "non précisé"}
+Compétences requises: ${offer.requirements || "non listées"}
+Description:
+${offer.description.slice(0, 4000)}
+</offre>
+${criteriaBlock}
 
-Dossier candidat:
-${dossier.slice(0, 12000)}${webBlock}`
+<dossier_candidat>
+${dossier.slice(0, 12000)}
+</dossier_candidat>${webBlock}`,
+        { temperature: 0.15, maxTokens: 1800 }
       );
-      const parsed = JSON.parse(raw) as MatchResult;
+      const parsed = parseJsonFromLlm<MatchResult>(raw);
       const score = Math.max(0, Math.min(100, Number(parsed.score) || 0));
       const recommendation =
         parsed.recommendation === "retenir" ||
@@ -510,10 +712,14 @@ ${dossier.slice(0, 12000)}${webBlock}`
 
     try {
       return await chatText(
-        "Tu es un RH Yas Togo. Rédige une synthèse courte (4-6 phrases) du classement candidats pour aider à la décision. Français, ton pro, concret.",
-        `Offre: ${input.offerTitle}\nClassement (du plus fort au plus faible):\n${input.ranked
-          .map((r, i) => `${i + 1}. [${r.grade}] ${r.name} — ${r.score}/100 — ${r.summary}`)
-          .join("\n")}`
+        PROMPT_RANKING_SYSTEM,
+        `<offre>${input.offerTitle}</offre>
+<classement>
+${input.ranked
+  .map((r, i) => `${i + 1}. [${r.grade}] ${r.name} — ${r.score}/100 — ${r.summary}`)
+  .join("\n")}
+</classement>`,
+        { temperature: 0.25, maxTokens: 700 }
       );
     } catch (error) {
       console.warn("[ai] ranking summary failed:", error);
@@ -531,23 +737,14 @@ ${dossier.slice(0, 12000)}${webBlock}`
 
     try {
       const raw = await chatJson(
-        `Tu extrais UNIQUEMENT des faits présents dans le texte du CV pour préremplir un formulaire.
-Ne juge pas, n'évalue pas, ne note pas, ne résume pas pour un recruteur.
-Si une info n'est pas explicitement dans le texte, mets null ou [].
-JSON strict avec:
-- fullName (string|null)
-- email (string|null)
-- phone (string|null)
-- bio (string courte factuelle|null)
-- skills (string[] de compétences citées)
-- experiences (string[])
-- formations (string[])`,
-        text.slice(0, 12000)
+        PROMPT_EXTRACT_CV_SYSTEM,
+        `<cv>\n${text.slice(0, 12000)}\n</cv>`,
+        { temperature: 0.1, maxTokens: 2000 }
       );
       // `parsed` vient d'un JSON.parse() sur une réponse de modèle IA : on ne
       // lui fait pas confiance tel quel malgré le cast `as CvExtraction` —
       // chaque champ est validé/normalisé avant d'être renvoyé.
-      const parsed = JSON.parse(raw) as CvExtraction;
+      const parsed = parseJsonFromLlm<CvExtraction>(raw);
       const skills = normalizeTextArray(parsed.skills, 12);
       const experiences = normalizeTextArray(parsed.experiences, 12);
       const formations = normalizeTextArray(parsed.formations, 12);
@@ -574,19 +771,14 @@ JSON strict avec:
     try {
       const today = new Date().toISOString().slice(0, 10);
       const raw = await chatJson(
-        `Tu es l'assistant RH de Yas Togo (télécoms, Top Employer).
-À partir d'un brief oral ou écrit (même approximatif), produis une offre complète en français.
-Réponds UNIQUEMENT en JSON avec exactement ces clés:
-- title (string, titre pro, max 90 caractères)
-- type ("stage" | "emploi")
-- description (string longue, structurée avec sections: À propos / Missions / Profil / Ce que nous offrons)
-- requirements (string: compétences séparées par virgules, 5 à 10 items)
-- location (string: ville/région au Togo, ex. "Lomé", "Kara", "Atakpamé (Plateaux)")
-- deadline (string date ISO YYYY-MM-DD, typiquement 15 à 45 jours après aujourd'hui ${today})
-Si le brief ne précise pas un champ, infère de façon réaliste pour Yas Togo.`,
-        `Type suggéré (optionnel): ${preferred || "à déduire"}\nBrief RH:\n${brief}`
+        `${PROMPT_ASSIST_OFFER_SYSTEM}\nDate du jour (pour deadline): ${today}`,
+        `<type_suggere>${preferred || "à déduire du brief"}</type_suggere>
+<brief_rh>
+${brief}
+</brief_rh>`,
+        { temperature: 0.4, maxTokens: 3200 }
       );
-      const parsed = JSON.parse(raw) as Partial<OfferAssistResult>;
+      const parsed = parseJsonFromLlm<Partial<OfferAssistResult>>(raw);
       const fallback = fallbackAssistOffer(brief, preferred);
       const resolvedType =
         parsed.type === "stage" || parsed.type === "emploi" ? parsed.type : fallback.type;
@@ -612,8 +804,10 @@ Si le brief ne précise pas un champ, infère de façon réaliste pour Yas Togo.
     if (!isConfigured()) return faqFallback(message);
     try {
       return await chatText(
-        FAQ_CONTEXT + (userContext ? `\nContexte utilisateur: ${userContext}` : ""),
-        message
+        PROMPT_CHATBOT_SYSTEM +
+          (userContext ? `\n\nContexte session: ${userContext}` : ""),
+        message,
+        { temperature: 0.35, maxTokens: 700 }
       );
     } catch (error) {
       console.warn("[ai] chatbot failed:", error);

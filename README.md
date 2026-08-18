@@ -2,7 +2,7 @@
 
 Plateforme de recrutement Yas Togo — offres, candidatures, entretiens, notifications et assistance IA.
 
-**Stack :** AdonisJS 7 (API) + Lucid + SQLite (dev) / MySQL (prod) · Next.js 15 + TypeScript + shadcn/ui · Groq (IA)
+**Stack :** Next.js 15 (API Prisma/PostgreSQL + frontend) · TypeScript + shadcn/ui · RodiumAI (IA)
 
 > Spec détaillée : [`README (4).md`](./README%20(4).md)  
 > Ancien stack Express/Prisma : [`legacy/`](./legacy/)
@@ -70,9 +70,9 @@ APP_KEY=...
 APP_URL=http://localhost:3333
 SESSION_DRIVER=cookie
 
-# Optionnel — IA Groq
-GROQ_API_KEY=
-GROQ_MODEL=llama-3.3-70b-versatile
+# Optionnel — IA RodiumAI (backend réel : yascareer-backend/.env)
+RODIUMAI_API_KEY=
+RODIUMAI_MODEL=openai/gpt-4o-mini
 
 # Optionnel — emails SMTP
 SMTP_HOST=
@@ -82,7 +82,7 @@ SMTP_PASSWORD=
 SMTP_FROM=YasCareer <noreply@yascareer.tg>
 ```
 
-Sans `GROQ_API_KEY`, le scoring IA et le chatbot utilisent des **fallbacks** déterministes.  
+Sans `RODIUMAI_API_KEY`, le scoring IA et le chatbot utilisent des **fallbacks** déterministes.  
 Sans SMTP, les emails sont **journalisés** (`[mail:skip]`).
 
 ### Frontend (`frontend/.env.local`)

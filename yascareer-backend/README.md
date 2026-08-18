@@ -5,7 +5,7 @@ frontend : uniquement des endpoints JSON. Conçu pour être consommé par le
 frontend Next.js (ou toute autre app : mobile, etc.).
 
 Réécriture du backend AdonisJS d'origine en **Route Handlers Next.js** adossés à
-**Prisma** + **PostgreSQL**, avec IA **Ollama** auto-hébergée.
+**Prisma** + **PostgreSQL**, avec IA **RodiumAI**.
 
 ## Stack
 
@@ -13,7 +13,7 @@ Réécriture du backend AdonisJS d'origine en **Route Handlers Next.js** adossé
 - **Prisma ORM** + **PostgreSQL**
 - Auth **JWT** (Bearer) + mots de passe **bcrypt**
 - Validation **Zod**
-- IA via **Ollama** (API OpenAI-compatible ; fallback heuristique si absent)
+- IA via **RodiumAI** (API OpenAI-compatible ; fallback heuristique si clé absente)
 - Lecture CV **PDF** (`pdf-parse`) et **DOCX** (`mammoth`)
 - Recherche web candidats : Tavily / Serper / DuckDuckGo (optionnel)
 - **CORS** activé (le frontend est sur une autre origine)
@@ -30,7 +30,7 @@ Réécriture du backend AdonisJS d'origine en **Route Handlers Next.js** adossé
 
 ```bash
 cp .env.example .env
-# éditez .env : DATABASE_URL, APP_KEY (secret long), FRONTEND_URL, OLLAMA_URL
+# éditez .env : DATABASE_URL, APP_KEY (secret long), FRONTEND_URL, RODIUMAI_API_KEY
 
 npm install
 npx prisma generate          # client Prisma
@@ -70,9 +70,7 @@ et les liens d'activation email).
 | `DATABASE_URL` | Connexion PostgreSQL (**requis**) |
 | `APP_KEY` | Secret : signe les JWT et les tokens d'activation HMAC (**requis**) |
 | `FRONTEND_URL` | Origine du front — CORS + liens d'activation email |
-| `OLLAMA_URL` | Endpoint Ollama OpenAI-compatible (ex. `http://localhost:11434/v1`). Absent → fallback |
-| `OLLAMA_MODEL` | Modèle Ollama (défaut `llama3.1`) |
-| `OLLAMA_API_KEY` | Optionnel : jeton si Ollama est derrière un proxy d'auth |
+| `RODIUMAI_API_KEY` | **Seule variable IA à remplir** : clé `rd_sk_…` (https://www.rodiumai.io). Absent → fallback |
 | `TAVILY_API_KEY` / `SERPER_API_KEY` | Recherche web candidats. Absent → DuckDuckGo |
 | `SMTP_*` | Envoi d'emails. Absent → logué en console |
 
@@ -146,35 +144,20 @@ Authentification : en-tête `Authorization: Bearer <token>`.
 ### Fichiers
 - `GET /uploads/:path*` — sert les CV / lettres (stockés hors `public/`)
 
-## IA auto-hébergée avec Ollama
+## IA via RodiumAI
 
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.1        # ~4.7 Go, gère bien le JSON strict
-# alternatives : qwen2.5:7b (excellent en extraction), mistral (plus léger)
+Toutes les fonctions IA passent par `src/server/services/ai.ts`.
+
+**Toi, tu n’as qu’à coller la clé** dans `yascareer-backend/.env` :
+
+```env
+RODIUMAI_API_KEY="rd_sk_…"
 ```
 
-Ollama écoute sur `http://localhost:11434`. L'API cible
-`OLLAMA_URL="http://localhost:11434/v1"`.
+1. Compte + clé : [rodiumai.io](https://www.rodiumai.io) (préfixe `rd_sk_`)
+2. Redémarre l’API (`npm run dev` dans `yascareer-backend`)
 
-**Ollama sur un autre serveur** (ex. machine GPU) :
-
-```bash
-OLLAMA_HOST=0.0.0.0:11434 ollama serve   # sur la machine Ollama
-```
-```
-OLLAMA_URL="http://10.0.0.X:11434/v1"    # dans le .env de l'API
-```
-
-> **Sécurité** : Ollama n'a pas d'auth native. Ne l'exposez pas sur Internet —
-> gardez-le sur le réseau privé (WireGuard) ou derrière un proxy avec
-> `OLLAMA_API_KEY`.
-
-Plusieurs routes exigent une sortie **JSON stricte** (analyse candidat,
-extraction CV, assistant offre). `llama3.1` et `qwen2.5:7b` gèrent bien le mode
-JSON. Si un modèle renvoie du JSON invalide, le code bascule automatiquement sur
-ses **fallbacks heuristiques** — rien ne casse. Vous pouvez démarrer sans IA
-(`OLLAMA_URL` vide) puis l'activer ensuite.
+L’URL et le modèle ont déjà une valeur par défaut (`https://api.rodiumai.io/v1`, `openai/gpt-4o-mini`). Sans clé, le scoring / chatbot restent utilisables en mode dégradé (heuristiques).
 
 ## Structure
 
@@ -197,7 +180,7 @@ src/
     serialize.ts           Sérialisation user (initiales, sans password)
     services/              account-activation, storage, notification,
                            activity-log, mail, application-status,
-                           document-reader, web-research, ai (Ollama)
+                           document-reader, web-research, ai (RodiumAI)
 storage/uploads/           Fichiers uploadés (hors public/)
 ```
 

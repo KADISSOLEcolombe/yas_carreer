@@ -18,7 +18,7 @@ Le `README.md` à la racine du dépôt décrit le backend AdonisJS comme actif e
 - **Backend** : Next.js 15 en mode API-only (Route Handlers sous `src/app/api/**/route.ts`), pas d'Express/Fastify/NestJS.
 - **Base de données** : PostgreSQL via Prisma ORM 6.2.1.
 - **Auth** : JWT stateless (bcryptjs + jsonwebtoken), pas de sessions, pas de NextAuth/Passport.
-- **IA/LLM** : Ollama auto-hébergé (SDK `openai` pointé sur un endpoint OpenAI-compatible local), avec fallback heuristique déterministe si absent. **Pas Groq ni OpenAI réel**, malgré ce que suggère le cahier des charges historique.
+- **IA/LLM** : RodiumAI (SDK `openai` pointé sur `https://api.rodiumai.io/v1`), avec fallback heuristique déterministe si `RODIUMAI_API_KEY` est absente.
 - **Emails** : Nodemailer/SMTP, 11 templates HTML, fire-and-forget (échec silencieux si SMTP non configuré).
 - **Stockage fichiers** : système de fichiers local (`storage/uploads/`), pas de S3/Cloudinary.
 - **Recherche web (enrichissement scoring candidat)** : Tavily / Serper avec fallback DuckDuckGo.
@@ -105,7 +105,7 @@ Chaque endpoint listé côté frontend (`frontend/src/lib/api.ts`) correspond 1:
 - Génération assistée d'une offre d'emploi/stage (`ai-assist`).
 - Chatbot conversationnel (`chatbot/message`).
 - Enrichissement du scoring par recherche web publique sur le candidat (Tavily/Serper/DuckDuckGo).
-- Toutes ces fonctions ont un **fallback heuristique non-IA** si aucun serveur Ollama n'est configuré (le produit reste utilisable sans IA, avec un scoring dégradé).
+- Toutes ces fonctions ont un **fallback heuristique non-IA** si `RODIUMAI_API_KEY` n'est pas configurée (le produit reste utilisable sans IA, avec un scoring dégradé).
 
 ---
 
@@ -131,7 +131,7 @@ Chaque endpoint listé côté frontend (`frontend/src/lib/api.ts`) correspond 1:
 - Endpoints `POST /applications/guest` et `POST /applications/extract-cv-public` (candidature/extraction CV sans compte) : **documentés dans le README backend mais absents du code** — n'existent pas.
 - Type de notification `guest_application` référencé côté frontend mais jamais émis par le backend.
 - Bascule thème sombre : librairie installée (`next-themes`) mais thème forcé en clair, aucune UI pour changer.
-- Le fournisseur IA "Groq" mentionné dans d'anciens documents de cadrage n'est pas utilisé par le backend actif (qui utilise Ollama).
+- Les fournisseurs IA "Groq" / "Ollama" mentionnés dans d'anciens documents de cadrage ne sont plus utilisés par le backend actif (qui utilise **RodiumAI**).
 
 ---
 
