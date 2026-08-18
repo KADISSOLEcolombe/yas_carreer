@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { CalendarClock, Sparkles } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { applicationsApi } from "@/lib/api";
@@ -62,17 +62,6 @@ export default function CandidatCandidaturesPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <ApplicationStepper status={app.status} />
-              {app.aiSummary && (
-                <div className="flex gap-2 rounded-lg bg-muted p-3 text-sm">
-                  <Sparkles className="mt-0.5 size-4 shrink-0 text-yas-sky" />
-                  <div>
-                    <p className="font-medium text-yas-midnight">
-                      Analyse IA {app.aiMatchScore != null ? `— ${app.aiMatchScore}/100` : ""}
-                    </p>
-                    <p className="text-muted-foreground">{app.aiSummary}</p>
-                  </div>
-                </div>
-              )}
               {app.interview && (
                 <div className="flex items-center gap-2 rounded-lg border border-yas-sky/30 bg-yas-sky/10 p-3 text-sm">
                   <CalendarClock className="size-4 text-yas-midnight" />

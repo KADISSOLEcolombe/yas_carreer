@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import type { User } from "@/lib/types";
+import { clearPendingOffer } from "@/lib/pending-application";
 
 const TOKEN_KEY = "yas_token";
 const USER_KEY = "yas_user";
@@ -38,6 +39,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       window.localStorage.removeItem(TOKEN_KEY);
       window.localStorage.removeItem(USER_KEY);
     }
+    clearPendingOffer();
     set({ user: null, token: null });
   },
   hydrate: () => {

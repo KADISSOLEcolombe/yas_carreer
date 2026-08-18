@@ -2,18 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Briefcase, FileText, Heart, UploadCloud } from "lucide-react";
+import { Briefcase, FileText, Sparkles, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ApplicationStepper } from "@/components/shared/application-stepper";
 import { OfferCard } from "@/components/shared/offer-card";
-import { applicationsApi, authApi, offersApi } from "@/lib/api";
+import { CompleteProfileDialog } from "@/components/shared/complete-profile-dialog";
+import { applicationsApi, authApi, candidateDocumentsApi, offersApi } from "@/lib/api";
 import { computeProfileCompletion } from "@/lib/candidate-profile";
-import { getFavoriteIds, FAVORITES_CHANGED_EVENT } from "@/lib/favorites";
-import { fileUrl } from "@/lib/api";
-import { useAuthStore } from "@/lib/auth-store";
+import { getPendingOffer, clearPendingOffer } from "@/lib/pending-application";
+import { getRelevantOffersForCandidate, isOfferExpired } from "@/lib/offer-utils";
 
 function initials(name?: string | null, email?: string) {
   if (name?.trim()) {
@@ -24,7 +25,34 @@ function initials(name?: string | null, email?: string) {
 }
 
 export default function CandidatDashboardPage() {
-  const authUser = useAuthStore((state) => state.user);
+  const router = useRouter();
+
+  const [showCompleteProfile, setShowCompleteProfile] = useState(false);
+  useEffect(() => {
+    const justRegistered = window.sessionStorage.getItem("yas_just_registered");
+    if (justRegistered) {
+      window.sessionStorage.removeItem("yas_just_registered");
+      setShowCompleteProfile(true);
+    }
+  }, []);
+
+  const [pendingOffer, setPendingOfferState] = useState(() => getPendingOffer());
+  const { data: pendingOfferDetail, isError: pendingOfferInvalid } = useQuery({
+    queryKey: ["offer", "pending", pendingOffer?.offerId],
+    queryFn: () => offersApi.get(pendingOffer!.offerId),
+    enabled: !!pendingOffer,
+    retry: false,
+  });
+  useEffect(() => {
+    if (!pendingOffer) return;
+    const invalid =
+      pendingOfferInvalid ||
+      (pendingOfferDetail && isOfferExpired(pendingOfferDetail.deadline));
+    if (invalid) {
+      clearPendingOffer();
+      setPendingOfferState(null);
+    }
+  }, [pendingOffer, pendingOfferInvalid, pendingOfferDetail]);
 
   const { data: me } = useQuery({ queryKey: ["auth", "me"], queryFn: authApi.me });
   const { data: applications } = useQuery({
@@ -35,32 +63,70 @@ export default function CandidatDashboardPage() {
     queryKey: ["offers", "all"],
     queryFn: () => offersApi.list(),
   });
+  const { data: documents } = useQuery({
+    queryKey: ["candidate-documents"],
+    queryFn: candidateDocumentsApi.list,
+  });
 
-  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
-  useEffect(() => {
-    function refresh() {
-      setFavoriteIds(getFavoriteIds(authUser?.id));
-    }
-    refresh();
-    window.addEventListener(FAVORITES_CHANGED_EVENT, refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener(FAVORITES_CHANGED_EVENT, refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, [authUser?.id]);
-
-  const favoriteOffers = useMemo(
-    () => (offers ?? []).filter((o) => favoriteIds.includes(o.id)).slice(0, 3),
-    [offers, favoriteIds]
+  const relevantOffers = useMemo(
+    () => getRelevantOffersForCandidate(offers ?? [], me?.profile?.skills, 5),
+    [offers, me?.profile?.skills]
   );
 
   const recentApplications = applications?.slice(0, 3) ?? [];
-  const completion = computeProfileCompletion(me?.user, me?.profile);
-  const cvUrl = fileUrl(me?.profile?.cvUrl);
+  const documentCount = documents?.length ?? 0;
+  const completion = computeProfileCompletion(me?.user, me?.profile, documentCount > 0);
 
   return (
     <div className="space-y-6">
+      <CompleteProfileDialog
+        open={showCompleteProfile}
+        onOpenChange={setShowCompleteProfile}
+      />
+
+      {pendingOffer && !pendingOfferInvalid && (
+        <Card className="border-yas-sky/30 bg-yas-sky/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-yas-sky/15 text-yas-midnight">
+                <Briefcase className="size-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-yas-midnight">
+                  Offre en attente
+                  {pendingOfferDetail ? ` : ${pendingOfferDetail.title}` : ""}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Reprenez votre candidature là où vous l&apos;aviez laissée.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="midnight"
+                onClick={() =>
+                  router.push(`/offres/${pendingOffer.offerId}?apply=1`)
+                }
+              >
+                Reprendre ma candidature
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Ignorer"
+                onClick={() => {
+                  clearPendingOffer();
+                  setPendingOfferState(null);
+                }}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
         {/* Mes candidatures */}
         <Card>
@@ -138,24 +204,14 @@ export default function CandidatDashboardPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Documents
               </p>
-              {cvUrl ? (
-                <a
-                  href={cvUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 text-sm text-yas-midnight hover:bg-slate-100"
-                >
-                  <FileText className="size-4 shrink-0 text-yas-sky" />
-                  <span className="truncate">Curriculum Vitae</span>
-                </a>
-              ) : (
-                <p className="text-sm text-muted-foreground">Aucun CV importé.</p>
-              )}
+              <div className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 text-sm text-slate-600">
+                <FileText className="size-4 shrink-0 text-yas-sky" />
+                {documentCount > 0
+                  ? `${documentCount} document${documentCount > 1 ? "s" : ""} enregistré${documentCount > 1 ? "s" : ""}`
+                  : "Aucun document enregistré."}
+              </div>
               <Button asChild variant="outline" className="w-full gap-2 rounded-xl">
-                <Link href="/candidat/profil">
-                  <UploadCloud className="size-4" />
-                  Mettre à jour le CV
-                </Link>
+                <Link href="/candidat/profil">Gérer mes documents</Link>
               </Button>
             </div>
 
@@ -188,29 +244,31 @@ export default function CandidatDashboardPage() {
         </Card>
       </div>
 
-      {/* Mes favoris */}
+      {/* Offres recommandées */}
       <div>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex items-center gap-2">
+          <Sparkles className="size-4 text-yas-sky" />
           <h2 className="font-heading text-lg font-semibold text-yas-midnight">
-            Mes favoris
+            Offres recommandées
           </h2>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/candidat/favoris">Voir tout</Link>
-          </Button>
         </div>
 
-        {favoriteOffers.length === 0 ? (
+        {relevantOffers.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
-              <Heart className="size-5 text-yas-sky" />
+              <Sparkles className="size-5 text-yas-sky" />
               <p className="text-sm">
-                Ajoutez des offres en favoris pour les retrouver ici.
+                Ajoutez des compétences à votre{" "}
+                <Link href="/candidat/profil" className="underline">
+                  profil
+                </Link>{" "}
+                pour voir des offres recommandées.
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {favoriteOffers.map((offer) => (
+            {relevantOffers.map((offer) => (
               <OfferCard key={offer.id} offer={offer} />
             ))}
           </div>

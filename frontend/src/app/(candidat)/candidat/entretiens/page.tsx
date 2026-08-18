@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, Link as LinkIcon, MapPin } from "lucide-react";
+import { CalendarClock, Clock, Link as LinkIcon, MapPin, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { interviewsApi } from "@/lib/api";
@@ -49,16 +49,27 @@ export default function CandidatEntretiensPage() {
             <CardContent className="space-y-2 text-sm">
               <p className="flex items-center gap-2">
                 <CalendarClock className="size-4 text-yas-sky" />
-                {new Date(interview.scheduledAt).toLocaleString("fr-FR", {
+                {new Date(interview.scheduledAt).toLocaleDateString("fr-FR", {
                   dateStyle: "full",
+                })}
+              </p>
+              <p className="flex items-center gap-2">
+                <Clock className="size-4 text-yas-sky" />
+                {new Date(interview.scheduledAt).toLocaleTimeString("fr-FR", {
                   timeStyle: "short",
                 })}
               </p>
               <p className="flex items-center gap-2">
-                <MapPin className="size-4 text-yas-sky" />
+                <Users className="size-4 text-yas-sky" />
                 {INTERVIEW_MODE_LABELS[interview.mode]}
               </p>
-              {interview.meetingLink && (
+              {interview.mode === "presentiel" && interview.location && (
+                <p className="flex items-center gap-2">
+                  <MapPin className="size-4 text-yas-sky" />
+                  Lieu : {interview.location}
+                </p>
+              )}
+              {interview.mode === "distanciel" && interview.meetingLink && (
                 <p className="flex items-center gap-2">
                   <LinkIcon className="size-4 text-yas-sky" />
                   <a
@@ -67,7 +78,7 @@ export default function CandidatEntretiensPage() {
                     rel="noreferrer"
                     className="text-yas-midnight underline"
                   >
-                    {interview.meetingLink}
+                    Rejoindre l&apos;entretien
                   </a>
                 </p>
               )}

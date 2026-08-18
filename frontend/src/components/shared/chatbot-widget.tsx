@@ -120,9 +120,10 @@ export function ChatbotWidget() {
             />
             <Button
               size="icon"
+              variant="midnight"
               onClick={handleSend}
               disabled={pending || !input.trim()}
-              className="shrink-0 bg-yas-midnight hover:bg-yas-midnight/90"
+              className="shrink-0"
             >
               <Send className="size-4" />
             </Button>

@@ -7,6 +7,7 @@ import type {
   InterviewStatus,
   OfferStatus,
   OfferType,
+  SupervisionNoteRecommendation,
   SupervisionNoteType,
   UserRole,
 } from "@/lib/types";
@@ -123,6 +124,18 @@ export const INTERVIEW_REQUEST_STATUS_LABELS: Record<InterviewRequestStatus, str
   indisponible: "Indisponible",
 };
 
+/** Niveau d'étude du candidat — texte libre en base, options suggérées ici pour l'UI. */
+export const NIVEAU_ETUDE_OPTIONS = [
+  "Bac",
+  "Bac+1",
+  "Bac+2",
+  "Bac+3",
+  "Bac+4",
+  "Bac+5",
+  "Bac+6 et plus",
+  "Doctorat",
+] as const;
+
 export const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
   stage: "Stage",
   cdd: "CDD",
@@ -138,6 +151,12 @@ export const SUPERVISION_NOTE_TYPE_LABELS: Record<SupervisionNoteType, string> =
   rapport: "Rapport de suivi",
   evaluation: "Évaluation",
   observation: "Observation",
+};
+
+export const RECOMMENDATION_LABELS: Record<SupervisionNoteRecommendation, string> = {
+  favorable: "Favorable",
+  a_revoir: "À revoir",
+  defavorable: "Défavorable",
 };
 
 /** Lien métier selon le type de notification et le rôle. */
@@ -166,7 +185,7 @@ export function notificationHref(
     return "/superviseur/notifications";
   }
   // RH
-  if (type === "availability_response") return "/rh/entretiens";
+  if (type === "availability_response") return "/rh/entretiens?tab=a_traiter";
   if (type === "new_application" || type === "guest_application")
     return "/rh/candidatures";
   if (type === "ai_ranking_ready" || type === "ai_analysis_ready")

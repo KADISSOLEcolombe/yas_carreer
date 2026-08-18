@@ -29,6 +29,8 @@ export interface User {
   isActive: boolean;
   mustChangePassword?: boolean;
   initials: string;
+  departementId?: number | null;
+  departement?: Departement | null;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -38,6 +40,9 @@ export interface CandidateProfile {
   userId: number;
   bio: string | null;
   skills: string | null;
+  anneesEtude: string | null;
+  ville: string | null;
+  quartier: string | null;
   cvUrl: string | null;
   aiExtractedData: {
     bio?: string;
@@ -50,6 +55,18 @@ export interface CandidateProfile {
   updatedAt: string | null;
 }
 
+export interface Departement {
+  id: number;
+  nom: string;
+  description: string | null;
+}
+
+export interface OfferDocumentRequirement {
+  nom: string;
+  obligatoire: boolean;
+  description?: string | null;
+}
+
 export interface Offer {
   id: number;
   title: string;
@@ -60,6 +77,9 @@ export interface Offer {
   location: string | null;
   status: OfferStatus;
   aiAnalysisCriteria?: string | null;
+  documentsRequis: OfferDocumentRequirement[];
+  departementId: number | null;
+  departement?: Departement | null;
   createdBy: number;
   createdAt: string;
   updatedAt: string | null;
@@ -76,6 +96,7 @@ export interface Application {
   cvUrl: string | null;
   coverLetterUrl: string | null;
   coverLetterText: string | null;
+  documentsUrls: Record<string, string> | null;
   aiMatchScore: number | null;
   aiSummary: string | null;
   aiAnalyzedAt: string | null;
@@ -100,6 +121,47 @@ export interface Application {
   interview?: Interview | null;
 }
 
+export interface ApplicationStatusHistoryEntry {
+  id: number;
+  applicationId: number;
+  status: ApplicationStatus;
+  note: string | null;
+  changedBy: number | null;
+  changedAt: string;
+  changer?: User | null;
+}
+
+export interface CandidateDocument {
+  id: number;
+  userId: number;
+  label: string;
+  url: string;
+  createdAt: string;
+}
+
+export interface ApplicationNote {
+  id: number;
+  applicationId: number;
+  authorId: number;
+  content: string;
+  createdAt: string;
+  updatedAt: string | null;
+  author?: User;
+}
+
+export interface ApplicationDetail extends Application {
+  profile: CandidateProfile | null;
+  statusHistory: ApplicationStatusHistoryEntry[];
+  notes: ApplicationNote[];
+}
+
+/** Vue restreinte du même dossier candidature, pour un superviseur assigné à
+ * l'entretien — pas d'historique de statut, pas de notes RH internes, pas
+ * d'analyse IA (déjà absents de la réponse serveur pour ce rôle). */
+export interface ApplicationSupervisorView extends Application {
+  profile: CandidateProfile | null;
+}
+
 export interface Interview {
   id: number;
   applicationId: number;
@@ -114,19 +176,33 @@ export interface Interview {
   createdAt: string;
   updatedAt: string | null;
   application?: Application;
+  supervisor?: User | null;
+}
+
+export interface AvailableSlot {
+  date: string;
+  start: string;
+  end: string;
 }
 
 export interface InterviewRequest {
   id: number;
-  applicationId: number;
+  /** null = demande générique (non liée à une candidature). */
+  applicationId: number | null;
   supervisorId: number;
   requestedBy: number;
   status: InterviewRequestStatus;
+  /** Message professionnel rédigé par le RH à la création (demande générique) — consultable par le superviseur une fois connecté. */
+  message: string | null;
   availabilityNote: string | null;
+  /** Créneaux proposés par le RH avant réponse, puis créneaux confirmés par le superviseur après. */
+  availableSlots: AvailableSlot[] | null;
   respondedAt: string | null;
+  /** Renseigné une fois que le RH a fini de traiter la réponse (ex. après programmation). */
+  handledAt: string | null;
   createdAt: string;
   updatedAt: string | null;
-  application?: Application;
+  application?: Application | null;
   supervisor?: User;
   requester?: User;
 }
@@ -146,19 +222,36 @@ export interface Emploi {
   application?: Application;
   user?: User;
   supervisor?: User;
+  supervisionNotes?: SupervisionNote[];
 }
+
+/** Dossier complet d'un collaborateur (GET /emplois/:id) — candidature avec
+ * historique de statut + entretien, profil candidat inclus. */
+export interface EmploiDetail extends Emploi {
+  application?: Application & { statusHistory: ApplicationStatusHistoryEntry[] };
+  user?: User & { profile: CandidateProfile | null };
+}
+
+export type SupervisionNoteRecommendation = "favorable" | "a_revoir" | "defavorable";
 
 export interface SupervisionNote {
   id: number;
-  emploiId: number;
+  /** L'un des deux est renseigné : emploiId (suivi collaborateur) ou applicationId (évaluation d'entretien pré-embauche). */
+  emploiId: number | null;
+  applicationId: number | null;
   authorId: number;
   type: SupervisionNoteType;
   title: string | null;
   content: string;
   rating: number | null;
+  recommendation: SupervisionNoteRecommendation | null;
+  /** Chemin du PDF récapitulatif, généré à l'envoi (suivis et évaluations d'entretien). */
+  fichierRapport: string | null;
   createdAt: string;
   updatedAt: string | null;
   author?: User;
+  application?: Application;
+  emploi?: Emploi;
 }
 
 export interface OfferAiRankItem {

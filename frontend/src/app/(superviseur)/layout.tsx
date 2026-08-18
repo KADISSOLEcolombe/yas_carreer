@@ -5,6 +5,7 @@ import {
   CalendarClock,
   CalendarCheck,
   Users,
+  Star,
   Bell,
 } from "lucide-react";
 import { RouteGuard } from "@/components/shared/route-guard";
@@ -14,6 +15,7 @@ const mainNav = [
   { href: "/superviseur/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/superviseur/disponibilites", label: "Disponibilités", icon: CalendarCheck },
   { href: "/superviseur/entretiens", label: "Entretiens", icon: CalendarClock },
+  { href: "/superviseur/evaluations", label: "Mes évaluations", icon: Star },
   { href: "/superviseur/employes", label: "Mes collaborateurs", icon: Users },
   { href: "/superviseur/notifications", label: "Notifications", icon: Bell },
 ];

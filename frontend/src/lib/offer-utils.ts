@@ -192,6 +192,51 @@ export function splitSkills(requirements: string | null | undefined): string[] {
     .filter(Boolean)
 }
 
+/**
+ * Score de pertinence simple par mots-clés : nombre de compétences du
+ * candidat retrouvées dans le texte "exigences" d'une offre (recherche de
+ * sous-chaîne, insensible à la casse). Volontairement basique — pas de
+ * modèle IA ici, juste un comptage de correspondances textuelles.
+ */
+export function scoreOfferForCandidateSkills(
+  offerRequirements: string | null | undefined,
+  candidateSkills: string[]
+): number {
+  if (!offerRequirements || candidateSkills.length === 0) return 0;
+  const requirementsLower = offerRequirements.toLowerCase();
+  let score = 0;
+  for (const skill of candidateSkills) {
+    const needle = normalizeSkill(skill).toLowerCase();
+    if (needle && requirementsLower.includes(needle)) score++;
+  }
+  return score;
+}
+
+/**
+ * Classe une liste d'offres par pertinence pour les compétences d'un
+ * candidat (chaque offre scorée indépendamment, donc un candidat aux
+ * compétences variées peut voir des offres pertinentes dans plusieurs
+ * domaines). Retourne un tableau vide si le candidat n'a renseigné aucune
+ * compétence — comportement volontairement neutre, pas de fallback.
+ */
+export function getRelevantOffersForCandidate(
+  offers: Offer[],
+  candidateSkillsText: string | null | undefined,
+  limit = 5
+): Offer[] {
+  const skills = splitSkills(candidateSkillsText);
+  if (skills.length === 0) return [];
+  return offers
+    .map((offer) => ({
+      offer,
+      score: scoreOfferForCandidateSkills(offer.requirements, skills),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((entry) => entry.offer);
+}
+
 export function daysUntil(deadline: string | null | undefined): number | null {
   if (!deadline) return null
   const d = new Date(deadline)

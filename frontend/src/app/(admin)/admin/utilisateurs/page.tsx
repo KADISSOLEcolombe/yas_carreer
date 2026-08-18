@@ -31,7 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ApiError, usersApi } from "@/lib/api";
+import { ApiError, departementsApi, usersApi } from "@/lib/api";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { UserRole } from "@/lib/types";
 import {
@@ -48,6 +48,10 @@ export default function AdminUtilisateursPage() {
   const { data: users, isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: () => usersApi.list(),
+  });
+  const { data: departements } = useQuery({
+    queryKey: ["departements"],
+    queryFn: departementsApi.list,
   });
 
   const [roleTab, setRoleTab] = useState<UserRole | "all">("all");
@@ -131,6 +135,20 @@ export default function AdminUtilisateursPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success("Statut mis à jour");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : "Mise à jour impossible"
+      );
+    },
+  });
+
+  const departementMutation = useMutation({
+    mutationFn: ({ id, departementId }: { id: number; departementId: number | null }) =>
+      usersApi.updateDepartement(id, departementId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Département mis à jour");
     },
     onError: (error) => {
       toast.error(
@@ -263,6 +281,7 @@ export default function AdminUtilisateursPage() {
                 </th>
                 <th className="px-3 py-3 font-medium">Utilisateur</th>
                 <th className="px-3 py-3 font-medium">Rôle</th>
+                <th className="px-3 py-3 font-medium">Département</th>
                 <th className="px-3 py-3 font-medium">Statut</th>
                 <th className="px-3 py-3 font-medium">Actif</th>
                 <th className="w-12 px-3 py-3" />
@@ -272,7 +291,7 @@ export default function AdminUtilisateursPage() {
               {isLoading && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-16 text-center text-slate-400"
                   >
                     Chargement…
@@ -343,6 +362,33 @@ export default function AdminUtilisateursPage() {
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
+                    </td>
+                    <td className="px-3 py-3.5">
+                      {u.role === "superviseur" ? (
+                        <Select
+                          value={u.departementId ? String(u.departementId) : "none"}
+                          onValueChange={(v) =>
+                            departementMutation.mutate({
+                              id: u.id,
+                              departementId: v === "none" ? null : Number(v),
+                            })
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-44 rounded-full border-0 bg-slate-100 px-3 text-xs font-medium shadow-none">
+                            <SelectValue placeholder="Aucun" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Aucun</SelectItem>
+                            {(departements ?? []).map((d) => (
+                              <SelectItem key={d.id} value={String(d.id)}>
+                                {d.nom}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-3.5">
                       <SoftStatusPill tone={u.isActive ? "success" : "danger"}>

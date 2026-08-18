@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   MapPin,
@@ -32,19 +34,40 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ApiError, applicationsApi, interviewsApi, usersApi } from "@/lib/api";
+import {
+  ApiError,
+  applicationsApi,
+  interviewRequestsApi,
+  interviewsApi,
+  offersApi,
+  usersApi,
+} from "@/lib/api";
 import { trackRhAction } from "@/lib/track-activity";
 import {
   INTERVIEW_MODE_LABELS,
   INTERVIEW_STATUS_LABELS,
 } from "@/lib/constants";
-import type { Interview, InterviewMode, InterviewStatus } from "@/lib/types";
+import type {
+  AvailableSlot,
+  Interview,
+  InterviewMode,
+  InterviewRequest,
+  InterviewStatus,
+} from "@/lib/types";
 import {
   SoftCard,
   SoftPageHeader,
@@ -53,8 +76,13 @@ import {
   statusTone,
 } from "@/components/shared/soft-ui";
 import { cn } from "@/lib/utils";
+import { RequestAvailabilityDialog } from "@/components/shared/request-availability-dialog";
+import { RespondAvailabilityDialog } from "@/components/shared/respond-availability-dialog";
+import { SearchCombobox } from "@/components/shared/search-combobox";
+import { isOfferExpired } from "@/lib/offer-utils";
 
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+type TabValue = InterviewStatus | "all" | "a_traiter";
 
 function toDateKey(d: Date): string {
   const y = d.getFullYear();
@@ -95,15 +123,37 @@ function buildMonthCells(month: Date): (Date | null)[] {
   return cells;
 }
 
-export default function RhEntretiensPage() {
+function slotDurationMinutes(slot: AvailableSlot): number {
+  const [sh, sm] = slot.start.split(":").map(Number);
+  const [eh, em] = slot.end.split(":").map(Number);
+  return eh * 60 + em - (sh * 60 + sm);
+}
+
+function RhEntretiensContent() {
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const todayKey = toDateKey(new Date());
 
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<InterviewStatus | "all">("all");
+  const [manualTarget, setManualTarget] = useState<{
+    request: InterviewRequest;
+    status: "disponible" | "indisponible";
+  } | null>(null);
+  const [tab, setTab] = useState<TabValue>("all");
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selectedKey, setSelectedKey] = useState(todayKey);
 
+  const [sheetTarget, setSheetTarget] = useState<InterviewRequest | null>(null);
+  const [sheetSlotIndex, setSheetSlotIndex] = useState<number | null>(null);
+  const [schedulingFromRequestId, setSchedulingFromRequestId] = useState<number | null>(null);
+  const [schedulingHint, setSchedulingHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("tab");
+    if (fromUrl === "a_traiter") setTab("a_traiter");
+  }, [searchParams]);
+
+  const [offerId, setOfferId] = useState("");
   const [applicationId, setApplicationId] = useState("");
   const [supervisorId, setSupervisorId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
@@ -118,6 +168,11 @@ export default function RhEntretiensPage() {
     queryFn: interviewsApi.list,
   });
 
+  const { data: offers } = useQuery({
+    queryKey: ["offers", "rh-all"],
+    queryFn: () => offersApi.list(),
+  });
+
   const { data: applications } = useQuery({
     queryKey: ["applications", "rh", "all"],
     queryFn: () => applicationsApi.list(),
@@ -128,13 +183,79 @@ export default function RhEntretiensPage() {
     queryFn: () => usersApi.list("superviseur"),
   });
 
-  const eligibleApplications = applications?.filter(
-    (a) => a.status !== "acceptee" && a.status !== "rejetee"
+  const { data: interviewRequests } = useQuery({
+    queryKey: ["interview-requests"],
+    queryFn: () => interviewRequestsApi.list(),
+  });
+
+  const genericRequests = useMemo(
+    () =>
+      (interviewRequests ?? [])
+        .filter((r) => r.applicationId == null && !r.handledAt)
+        .sort((a, b) => {
+          const rank = (r: InterviewRequest) => (r.status === "disponible" ? 0 : r.status === "en_attente" ? 1 : 2);
+          const diff = rank(a) - rank(b);
+          return diff !== 0 ? diff : b.createdAt.localeCompare(a.createdAt);
+        }),
+    [interviewRequests]
   );
+  const actionableCount = useMemo(
+    () => genericRequests.filter((r) => r.status === "disponible").length,
+    [genericRequests]
+  );
+
+  const handleMutation = useMutation({
+    mutationFn: (id: number) => interviewRequestsApi.handle(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["interview-requests"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Erreur");
+    },
+  });
+
+  const selectedOffer = offers?.find((o) => o.id === Number(offerId));
+
+  const activeOfferOptions = useMemo(
+    () =>
+      (offers ?? [])
+        .filter((o) => o.status === "publiee" && !isOfferExpired(o.deadline))
+        .map((o) => ({ value: String(o.id), label: o.title, sublabel: o.departement?.nom })),
+    [offers]
+  );
+  const allOfferOptions = useMemo(
+    () =>
+      (offers ?? []).map((o) => ({
+        value: String(o.id),
+        label: o.title,
+        sublabel: o.departement?.nom
+          ? `${o.departement.nom} · ${o.status === "publiee" ? "publiée" : o.status === "brouillon" ? "brouillon" : "fermée"}`
+          : o.status === "publiee"
+            ? "publiée"
+            : o.status === "brouillon"
+              ? "brouillon"
+              : "fermée",
+      })),
+    [offers]
+  );
+
+  const eligibleApplications = offerId
+    ? applications?.filter(
+        (a) =>
+          a.offerId === Number(offerId) &&
+          a.status !== "acceptee" &&
+          a.status !== "rejetee"
+      )
+    : [];
+
+  const eligibleSupervisors =
+    offerId && selectedOffer?.departementId != null
+      ? (supervisors ?? []).filter((s) => s.departementId === selectedOffer.departementId)
+      : [];
 
   const statusFiltered = useMemo(() => {
     let list = interviews ?? [];
-    if (tab !== "all") list = list.filter((i) => i.status === tab);
+    if (tab !== "all" && tab !== "a_traiter") list = list.filter((i) => i.status === tab);
     return list;
   }, [interviews, tab]);
 
@@ -187,15 +308,23 @@ export default function RhEntretiensPage() {
         meetingLink: mode === "distanciel" ? meetingLink || undefined : undefined,
         notes: notes || undefined,
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["interviews"] });
       queryClient.invalidateQueries({ queryKey: ["applications"] });
       toast.success("Entretien programmé");
+      if (schedulingFromRequestId) {
+        await interviewRequestsApi.handle(schedulingFromRequestId);
+        queryClient.invalidateQueries({ queryKey: ["interview-requests"] });
+        setSchedulingFromRequestId(null);
+        setSchedulingHint(null);
+        setTab("planifie");
+      }
       if (scheduledAt) {
         setSelectedKey(toDateKey(new Date(scheduledAt)));
         setMonth(startOfMonth(new Date(scheduledAt)));
       }
       setOpen(false);
+      setOfferId("");
       setApplicationId("");
       setSupervisorId("");
       setScheduledAt("");
@@ -214,6 +343,7 @@ export default function RhEntretiensPage() {
   const tabs = [
     { value: "all", label: "Tous", count: counts.all },
     { value: "planifie", label: "Planifiés", count: counts.planifie },
+    { value: "a_traiter", label: "À traiter", count: actionableCount },
     { value: "termine", label: "Terminés", count: counts.termine },
     { value: "annule", label: "Annulés", count: counts.annule },
   ];
@@ -232,12 +362,37 @@ export default function RhEntretiensPage() {
     return n;
   }, [byDate, month]);
 
+  function openSheet(request: InterviewRequest) {
+    setSheetTarget(request);
+    setSheetSlotIndex(request.availableSlots && request.availableSlots.length > 0 ? 0 : null);
+  }
+
+  function continueToScheduling() {
+    if (!sheetTarget || sheetSlotIndex == null || !sheetTarget.availableSlots) return;
+    const slot = sheetTarget.availableSlots[sheetSlotIndex];
+    const duration = slotDurationMinutes(slot);
+    setSchedulingFromRequestId(sheetTarget.id);
+    setSchedulingHint(
+      `Suite à la disponibilité de ${sheetTarget.supervisor?.fullName || sheetTarget.supervisor?.email || "ce superviseur"} — pensez à le sélectionner ci-dessous.`
+    );
+    setOfferId("");
+    setApplicationId("");
+    setSupervisorId("");
+    setScheduledAt(`${slot.date}T${slot.start}`);
+    setDurationMinutes(String(duration || 30));
+    setSheetTarget(null);
+    setSheetSlotIndex(null);
+    setOpen(true);
+  }
+
   return (
     <div>
       <SoftPageHeader
         title="Entretiens"
         description="Calendrier des rendez-vous — cliquez une date pour voir les entretiens du jour."
         action={
+          <div className="flex flex-wrap gap-2">
+          <RequestAvailabilityDialog />
           <Dialog
             open={open}
             onOpenChange={(next) => {
@@ -248,6 +403,9 @@ export default function RhEntretiensPage() {
                   "Ouverture du dialog de programmation d’entretien",
                   { category: "ui" }
                 );
+              } else {
+                setSchedulingFromRequestId(null);
+                setSchedulingHint(null);
               }
             }}
           >
@@ -257,47 +415,92 @@ export default function RhEntretiensPage() {
                 Programmer
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-xl">
               <DialogHeader>
                 <DialogTitle>Programmer un entretien</DialogTitle>
                 <DialogDescription>
                   Le candidat sera notifié par email et notification in-app.
                 </DialogDescription>
               </DialogHeader>
+              {schedulingHint && (
+                <p className="rounded-xl bg-yas-sky/10 px-3 py-2 text-xs text-yas-midnight">
+                  {schedulingHint}
+                </p>
+              )}
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Candidature</Label>
-                  <Select
-                    value={applicationId}
-                    onValueChange={setApplicationId}
-                  >
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue placeholder="Choisir une candidature" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {eligibleApplications?.map((app) => (
-                        <SelectItem key={app.id} value={String(app.id)}>
-                          {app.user?.fullName || app.user?.email} —{" "}
-                          {app.offer?.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Offre</Label>
+                  <SearchCombobox
+                    value={offerId}
+                    onValueChange={(v) => {
+                      setOfferId(v);
+                      setApplicationId("");
+                      setSupervisorId("");
+                    }}
+                    options={activeOfferOptions}
+                    fallbackOptions={allOfferOptions}
+                    placeholder="Rechercher une offre par titre…"
+                    emptyMessage="Aucune offre trouvée."
+                  />
+                  {selectedOffer && (
+                    <p className="text-xs text-slate-400">
+                      Département : {selectedOffer.departement?.nom ?? "Non renseigné"}
+                    </p>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label>Superviseur (optionnel)</Label>
-                  <Select value={supervisorId} onValueChange={setSupervisorId}>
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue placeholder="Aucun superviseur" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {supervisors?.map((s) => (
-                        <SelectItem key={s.id} value={String(s.id)}>
-                          {s.fullName || s.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Candidature</Label>
+                    <Select
+                      value={applicationId}
+                      onValueChange={setApplicationId}
+                      disabled={!offerId}
+                    >
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue
+                          placeholder={
+                            offerId ? "Choisir une candidature" : "Sélectionnez d'abord une offre"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {eligibleApplications?.map((app) => (
+                          <SelectItem key={app.id} value={String(app.id)}>
+                            {app.user?.fullName || app.user?.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {offerId && eligibleApplications?.length === 0 && (
+                      <p className="text-xs text-slate-400">
+                        Aucune candidature éligible pour cette offre.
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Superviseur (optionnel)</Label>
+                    <Select value={supervisorId} onValueChange={setSupervisorId} disabled={!offerId}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue
+                          placeholder={offerId ? "Aucun superviseur" : "Sélectionnez d'abord une offre"}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {eligibleSupervisors.map((s) => (
+                          <SelectItem key={s.id} value={String(s.id)}>
+                            {s.fullName || s.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {offerId && eligibleSupervisors.length === 0 && (
+                      <p className="text-xs text-slate-400">
+                        {selectedOffer?.departementId == null
+                          ? "Cette offre n'a pas de département renseigné."
+                          : "Aucun superviseur dans le département de cette offre."}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
@@ -324,47 +527,51 @@ export default function RhEntretiensPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Type d&apos;entretien</Label>
-                  <Select
-                    value={mode}
-                    onValueChange={(v) => setMode(v as InterviewMode)}
-                  >
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="distanciel">Visio</SelectItem>
-                      <SelectItem value="presentiel">Présentiel</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Type d&apos;entretien</Label>
+                    <Select
+                      value={mode}
+                      onValueChange={(v) => setMode(v as InterviewMode)}
+                    >
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="distanciel">Visio</SelectItem>
+                        <SelectItem value="presentiel">Présentiel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {mode === "presentiel" ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Lieu</Label>
+                      <Input
+                        id="location"
+                        className="rounded-xl"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="Ex. Bureau Yas Togo, salle 2"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="meetingLink">Lien visio (optionnel)</Label>
+                      <Input
+                        id="meetingLink"
+                        className="rounded-xl"
+                        value={meetingLink}
+                        onChange={(e) => setMeetingLink(e.target.value)}
+                        placeholder="https://meet.google.com/..."
+                      />
+                    </div>
+                  )}
                 </div>
-                {mode === "presentiel" ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="location">Lieu</Label>
-                    <Input
-                      id="location"
-                      className="rounded-xl"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="Ex. Bureau Yas Togo, salle 2"
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="meetingLink">Lien visio (optionnel)</Label>
-                    <Input
-                      id="meetingLink"
-                      className="rounded-xl"
-                      value={meetingLink}
-                      onChange={(e) => setMeetingLink(e.target.value)}
-                      placeholder="https://meet.google.com/..."
-                    />
-                    <p className="text-xs text-slate-400">
-                      Génération automatique à venir — collez ici votre lien
-                      Google Meet en attendant.
-                    </p>
-                  </div>
+                {mode === "distanciel" && (
+                  <p className="-mt-2 text-xs text-slate-400">
+                    Génération automatique à venir — collez ici votre lien Google Meet en
+                    attendant.
+                  </p>
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notes</Label>
@@ -395,6 +602,7 @@ export default function RhEntretiensPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         }
       />
 
@@ -402,10 +610,95 @@ export default function RhEntretiensPage() {
         <SoftTabs
           items={tabs}
           value={tab}
-          onChange={(v) => setTab(v as InterviewStatus | "all")}
+          onChange={(v) => setTab(v as TabValue)}
         />
       </div>
 
+      {tab === "a_traiter" ? (
+        <div className="space-y-3">
+          {genericRequests.length === 0 && (
+            <SoftCard>
+              <p className="py-10 text-center text-muted-foreground">
+                Rien à traiter pour le moment.
+              </p>
+            </SoftCard>
+          )}
+          {genericRequests.map((r) => (
+            <SoftCard key={r.id} className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-heading text-base font-semibold text-yas-midnight">
+                    {r.status === "disponible"
+                      ? "Disponibilité reçue"
+                      : r.status === "en_attente"
+                        ? "En attente de réponse"
+                        : "Superviseur indisponible"}
+                  </p>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    Superviseur : {r.supervisor?.fullName || r.supervisor?.email}
+                  </p>
+                </div>
+                <SoftStatusPill
+                  tone={
+                    r.status === "disponible"
+                      ? "success"
+                      : r.status === "indisponible"
+                        ? "danger"
+                        : "warning"
+                  }
+                >
+                  {r.status === "disponible"
+                    ? `${r.availableSlots?.length ?? 0} créneau${(r.availableSlots?.length ?? 0) > 1 ? "x" : ""} disponible${(r.availableSlots?.length ?? 0) > 1 ? "s" : ""}`
+                    : r.status === "en_attente"
+                      ? "En attente"
+                      : "Indisponible"}
+                </SoftStatusPill>
+              </div>
+              {r.availabilityNote && (
+                <p className="text-xs italic text-slate-500">
+                  Note du superviseur : « {r.availabilityNote} »
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                {r.status === "disponible" && (
+                  <Button size="sm" className="gap-1.5" onClick={() => openSheet(r)}>
+                    Voir les détails
+                  </Button>
+                )}
+                {r.status === "en_attente" && (
+                  <>
+                    <span className="text-xs text-slate-400">Superviseur injoignable ?</span>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-yas-midnight underline underline-offset-2 hover:text-yas-midnight/70"
+                      onClick={() => setManualTarget({ request: r, status: "disponible" })}
+                    >
+                      Saisir « disponible » à sa place
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-slate-500 underline underline-offset-2 hover:text-slate-700"
+                      onClick={() => setManualTarget({ request: r, status: "indisponible" })}
+                    >
+                      Saisir « indisponible » à sa place
+                    </button>
+                  </>
+                )}
+                {r.status === "indisponible" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleMutation.mutate(r.id)}
+                    disabled={handleMutation.isPending}
+                  >
+                    Marquer comme traité
+                  </Button>
+                )}
+              </div>
+            </SoftCard>
+          ))}
+        </div>
+      ) : (
       <div className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
         {/* Calendrier */}
         <SoftCard className="!p-0 overflow-hidden">
@@ -730,6 +1023,87 @@ export default function RhEntretiensPage() {
           </div>
         </SoftCard>
       </div>
+      )}
+
+      {manualTarget && (
+        <RespondAvailabilityDialog
+          request={manualTarget.request}
+          status={manualTarget.status}
+          open={Boolean(manualTarget)}
+          onOpenChange={(next) => !next && setManualTarget(null)}
+          onBehalfOfSupervisor
+        />
+      )}
+
+      <Sheet open={Boolean(sheetTarget)} onOpenChange={(next) => !next && setSheetTarget(null)}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Disponibilité du superviseur</SheetTitle>
+            <SheetDescription>
+              Superviseur : {sheetTarget?.supervisor?.fullName || sheetTarget?.supervisor?.email}
+            </SheetDescription>
+          </SheetHeader>
+          {sheetTarget?.availableSlots && sheetTarget.availableSlots.length > 0 && (
+            <div className="space-y-4 px-4">
+              <p className="text-sm text-muted-foreground">
+                Durée de l&apos;entretien :{" "}
+                {slotDurationMinutes(sheetTarget.availableSlots[0])} minutes
+              </p>
+              {sheetTarget.availabilityNote && (
+                <p className="text-xs italic text-slate-500">
+                  Note du superviseur : « {sheetTarget.availabilityNote} »
+                </p>
+              )}
+              <div className="space-y-2">
+                <Label>Créneaux confirmés par le superviseur</Label>
+                <div className="space-y-1.5">
+                  {sheetTarget.availableSlots.map((slot, i) => (
+                    <label
+                      key={i}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition",
+                        sheetSlotIndex === i
+                          ? "border-yas-midnight bg-yas-midnight/5 text-yas-midnight"
+                          : "border-slate-200 hover:border-yas-sky/50"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="slot"
+                        className="accent-yas-midnight"
+                        checked={sheetSlotIndex === i}
+                        onChange={() => setSheetSlotIndex(i)}
+                      />
+                      {new Date(`${slot.date}T00:00:00`).toLocaleDateString("fr-FR", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                      })}{" "}
+                      — {slot.start} à {slot.end}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <SheetFooter>
+            <Button onClick={continueToScheduling} disabled={sheetSlotIndex == null} className="gap-2">
+              <CalendarClock className="size-4" />
+              Programmer l&apos;entretien
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
+  );
+}
+
+export default function RhEntretiensPage() {
+  return (
+    <Suspense
+      fallback={<div className="py-16 text-center text-sm text-slate-400">Chargement…</div>}
+    >
+      <RhEntretiensContent />
+    </Suspense>
   );
 }

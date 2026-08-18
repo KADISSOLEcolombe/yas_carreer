@@ -1,8 +1,8 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useRef, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -20,6 +20,13 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -28,7 +35,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ApiError, applicationsApi, offersApi } from "@/lib/api";
+import {
+  ApiError,
+  applicationsApi,
+  candidateDocumentsApi,
+  offersApi,
+  type DocumentSelection,
+} from "@/lib/api";
 import { OFFER_TYPE_LABELS } from "@/lib/constants";
 import {
   daysUntil,
@@ -37,39 +50,325 @@ import {
   splitSkills,
 } from "@/lib/offer-utils";
 import { useAuthStore } from "@/lib/auth-store";
+import { setPendingOffer, clearPendingOffer } from "@/lib/pending-application";
+import type { CandidateDocument, OfferDocumentRequirement } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-export default function OfferDetailPage({
+type SlotValue =
+  | { mode: "select"; documentId: number | null }
+  | { mode: "upload"; file: File | null };
+
+type DocCheckState =
+  | { status: "idle" | "checking" | "valid" }
+  | { status: "invalid"; message: string };
+
+function isSlotResolved(slot: SlotValue): boolean {
+  return slot.mode === "select" ? slot.documentId != null : slot.file != null;
+}
+
+function slotToSelection(slot: SlotValue): DocumentSelection {
+  return slot.mode === "select"
+    ? { documentId: slot.documentId as number }
+    : { file: slot.file as File };
+}
+
+/** Clé stable dérivée du contenu réel du slot — sert de dépendance d'effet
+ * sans redéclencher la vérification à chaque re-render (contrairement à
+ * l'objet SlotValue, recréé à chaque appel de getSlot()). */
+function slotKey(slot: SlotValue): string {
+  return slot.mode === "select"
+    ? `select:${slot.documentId ?? ""}`
+    : `upload:${slot.file ? `${slot.file.name}:${slot.file.size}:${slot.file.lastModified}` : ""}`;
+}
+
+/** Choisir un document déjà enregistré dans le profil, ou en téléverser un nouveau propre à cette candidature. */
+function DocumentSlotField({
+  name,
+  description,
+  required = true,
+  documents,
+  value,
+  onChange,
+  checkState,
+}: {
+  name: string;
+  description?: string | null;
+  required?: boolean;
+  documents: CandidateDocument[];
+  value: SlotValue;
+  onChange: (next: SlotValue) => void;
+  checkState?: DocCheckState;
+}) {
+  const resolved = isSlotResolved(value);
+
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium text-yas-midnight">
+            {name}
+            {required && <span className="text-destructive">*</span>}
+          </p>
+          {description && (
+            <p className="text-xs text-slate-500">{description}</p>
+          )}
+        </div>
+        {checkState?.status === "invalid" ? (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+            <XCircle className="size-3.5" />
+            Document invalide
+          </span>
+        ) : checkState?.status === "checking" ? (
+          <span className="text-xs font-medium text-slate-400">Vérification…</span>
+        ) : resolved ? (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+            <CheckCircle2 className="size-3.5" />
+            Fourni
+          </span>
+        ) : (
+          <span className="text-xs font-medium text-amber-700">
+            {required ? "Requis" : "Facultatif"}
+          </span>
+        )}
+      </div>
+
+      {documents.length > 0 && (
+        <div className="flex gap-1 rounded-lg bg-slate-100 p-1 text-xs">
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                mode: "select",
+                documentId: value.mode === "select" ? value.documentId : null,
+              })
+            }
+            className={cn(
+              "flex-1 rounded-md px-2 py-1 font-medium transition",
+              value.mode === "select"
+                ? "bg-white text-yas-midnight shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Document du profil
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ mode: "upload", file: null })}
+            className={cn(
+              "flex-1 rounded-md px-2 py-1 font-medium transition",
+              value.mode === "upload"
+                ? "bg-white text-yas-midnight shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Nouveau fichier
+          </button>
+        </div>
+      )}
+
+      {value.mode === "select" && documents.length > 0 ? (
+        <Select
+          value={value.documentId != null ? String(value.documentId) : undefined}
+          onValueChange={(v) => onChange({ mode: "select", documentId: Number(v) })}
+        >
+          <SelectTrigger className="bg-white">
+            <SelectValue placeholder="Choisir un document…" />
+          </SelectTrigger>
+          <SelectContent>
+            {documents.map((d) => (
+              <SelectItem key={d.id} value={String(d.id)}>
+                {d.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <input
+          type="file"
+          accept=".pdf"
+          onChange={(e) =>
+            onChange({ mode: "upload", file: e.target.files?.[0] || null })
+          }
+          className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+        />
+      )}
+
+      {checkState?.status === "invalid" && (
+        <p className="text-xs font-medium text-destructive">{checkState.message}</p>
+      )}
+    </div>
+  );
+}
+
+function OfferDetailContent({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, hydrated } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [coverLetterText, setCoverLetterText] = useState("");
-  const [cvFile, setCvFile] = useState<File | null>(null);
-  const [letterFile, setLetterFile] = useState<File | null>(null);
+  const [slotOverrides, setSlotOverrides] = useState<Record<string, SlotValue>>({});
+  const autoOpenedRef = useRef(false);
 
   const { data: offer, isLoading } = useQuery({
     queryKey: ["offer", id],
     queryFn: () => offersApi.get(id),
   });
 
+  const { data: myDocuments } = useQuery({
+    queryKey: ["candidate-documents"],
+    queryFn: candidateDocumentsApi.list,
+    enabled: hydrated && user?.role === "candidat",
+  });
+  const documents = myDocuments ?? [];
+
+  function findDocument(label: string) {
+    return documents.find(
+      (d) => d.label.trim().toLowerCase() === label.trim().toLowerCase()
+    );
+  }
+
+  // "CV" et "Lettre de motivation" sont universels et toujours obligatoires
+  // (toute offre les exige) ; les documents complémentaires — avec leur
+  // propre statut obligatoire/facultatif — dépendent de l'offre (définis par
+  // le RH via `documentsRequis`).
+  const requiredDocs: OfferDocumentRequirement[] = [
+    { nom: "CV", obligatoire: true },
+    { nom: "Lettre de motivation", obligatoire: true },
+    ...(offer?.documentsRequis ?? []),
+  ];
+
+  function defaultSlot(name: string): SlotValue {
+    const match = findDocument(name);
+    if (match) return { mode: "select", documentId: match.id };
+    if (documents.length > 0) return { mode: "select", documentId: null };
+    return { mode: "upload", file: null };
+  }
+
+  function getSlot(name: string): SlotValue {
+    return slotOverrides[name] ?? defaultSlot(name);
+  }
+
+  function setSlot(name: string, value: SlotValue) {
+    setSlotOverrides((prev) => ({ ...prev, [name]: value }));
+  }
+
+  const missingDocs = requiredDocs.filter(
+    (d) => d.obligatoire && !isSlotResolved(getSlot(d.nom))
+  );
+
+  // Vérification immédiate (au dépôt/à la sélection du fichier, avant
+  // l'envoi) que le CV et la lettre de motivation ressemblent bien à de
+  // vrais documents du bon type — même heuristique que côté analyse IA,
+  // appelée ici plus tôt dans le parcours pour bloquer à la source.
+  const cvSlot = getSlot("CV");
+  const coverSlot = getSlot("Lettre de motivation");
+  const cvSlotKey = slotKey(cvSlot);
+  const coverSlotKey = slotKey(coverSlot);
+  const [cvCheck, setCvCheck] = useState<DocCheckState>({ status: "idle" });
+  const [coverCheck, setCoverCheck] = useState<DocCheckState>({ status: "idle" });
+
+  useEffect(() => {
+    if (!isSlotResolved(cvSlot)) {
+      setCvCheck({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setCvCheck({ status: "checking" });
+    applicationsApi
+      .validateDocument({ kind: "cv", ...slotToSelection(cvSlot) })
+      .then((result) => {
+        if (cancelled) return;
+        setCvCheck(
+          result.valid
+            ? { status: "valid" }
+            : { status: "invalid", message: result.message }
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setCvCheck({ status: "idle" });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cvSlotKey]);
+
+  useEffect(() => {
+    if (!isSlotResolved(coverSlot)) {
+      setCoverCheck({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setCoverCheck({ status: "checking" });
+    applicationsApi
+      .validateDocument({ kind: "coverLetter", ...slotToSelection(coverSlot) })
+      .then((result) => {
+        if (cancelled) return;
+        setCoverCheck(
+          result.valid
+            ? { status: "valid" }
+            : { status: "invalid", message: result.message }
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setCoverCheck({ status: "idle" });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coverSlotKey]);
+
+  const docChecksBlocking =
+    cvCheck.status === "checking" ||
+    cvCheck.status === "invalid" ||
+    coverCheck.status === "checking" ||
+    coverCheck.status === "invalid";
+
+  useEffect(() => {
+    if (autoOpenedRef.current) return;
+    if (!hydrated || !offer) return;
+    if (
+      searchParams.get("apply") === "1" &&
+      user?.role === "candidat" &&
+      !isOfferExpired(offer.deadline)
+    ) {
+      setOpen(true);
+      autoOpenedRef.current = true;
+    }
+  }, [hydrated, offer, user, searchParams]);
+
   const applyMutation = useMutation({
-    mutationFn: () =>
-      applicationsApi.create({
+    mutationFn: () => {
+      const extraDocs = offer!.documentsRequis;
+      return applicationsApi.create({
         offerId: Number(id),
         coverLetterText: coverLetterText || undefined,
-        cv: cvFile,
-        coverLetter: letterFile,
-      }),
+        cv: slotToSelection(getSlot("CV")),
+        coverLetter: slotToSelection(getSlot("Lettre de motivation")),
+        documents: Object.fromEntries(
+          extraDocs
+            .filter((d) => isSlotResolved(getSlot(d.nom)))
+            .map((d) => [d.nom, slotToSelection(getSlot(d.nom))])
+        ),
+      });
+    },
     onSuccess: () => {
       toast.success("Candidature envoyée avec succès !");
       setOpen(false);
+      setSlotOverrides({});
+      clearPendingOffer();
       router.push("/candidat/candidatures");
     },
     onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) {
+        clearPendingOffer();
+      }
       toast.error(
         error instanceof ApiError ? error.message : "Erreur lors de l'envoi"
       );
@@ -293,7 +592,10 @@ export default function OfferDetailPage({
                   size="lg"
                   className="h-12 w-full rounded-xl border-slate-200 text-base text-yas-midnight hover:bg-slate-50"
                 >
-                  <Link href={`/register?next=/offres/${id}`}>
+                  <Link
+                    href={`/register?next=/offres/${id}`}
+                    onClick={() => setPendingOffer(Number(id), offer.title)}
+                  >
                     Créer un compte candidat
                   </Link>
                 </Button>
@@ -321,57 +623,78 @@ export default function OfferDetailPage({
                   <DialogHeader>
                     <DialogTitle>Postuler — {offer.title}</DialogTitle>
                     <DialogDescription>
-                      Joignez votre CV et une lettre de motivation (PDF, DOC,
-                      DOCX — max 5 Mo).
+                      Pour chaque document demandé, utilisez un document déjà
+                      enregistré dans votre profil ou téléversez-en un nouveau
+                      pour cette candidature (PDF uniquement, max 5 Mo).
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="coverLetterText">
-                        Lettre de motivation
+                        Message complémentaire (optionnel)
                       </Label>
                       <Textarea
                         id="coverLetterText"
-                        rows={6}
+                        rows={4}
                         value={coverLetterText}
                         onChange={(e) => setCoverLetterText(e.target.value)}
-                        placeholder="Expliquez votre motivation pour Yas Togo et ce poste (min. 20 caractères)…"
+                        placeholder="Un mot pour accompagner votre candidature (min. 20 caractères)…"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cv">CV</Label>
-                      <input
-                        id="cv"
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => setCvFile(e.target.files?.[0] || null)}
-                        className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="coverLetter">
-                        Lettre (fichier, optionnel)
-                      </Label>
-                      <input
-                        id="coverLetter"
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) =>
-                          setLetterFile(e.target.files?.[0] || null)
+
+                    {requiredDocs.map((doc) => (
+                      <DocumentSlotField
+                        key={doc.nom}
+                        name={doc.nom}
+                        description={doc.description}
+                        required={doc.obligatoire}
+                        documents={documents}
+                        value={getSlot(doc.nom)}
+                        onChange={(v) => setSlot(doc.nom, v)}
+                        checkState={
+                          doc.nom === "CV"
+                            ? cvCheck
+                            : doc.nom === "Lettre de motivation"
+                              ? coverCheck
+                              : undefined
                         }
-                        className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
                       />
-                    </div>
+                    ))}
+
+                    {documents.length === 0 && (
+                      <p className="text-xs text-slate-400">
+                        Vous n&apos;avez encore aucun document enregistré —{" "}
+                        <Link
+                          href="/candidat/profil"
+                          className="underline"
+                          target="_blank"
+                        >
+                          ajoutez-en depuis votre profil
+                        </Link>{" "}
+                        ou téléversez directement les fichiers ci-dessus.
+                      </p>
+                    )}
                   </div>
                   <DialogFooter>
                     <Button
+                      variant="midnight"
                       onClick={() => applyMutation.mutate()}
-                      disabled={applyMutation.isPending}
-                      className="w-full rounded-xl bg-yas-midnight hover:bg-yas-midnight/90 sm:w-auto"
+                      disabled={
+                        applyMutation.isPending ||
+                        missingDocs.length > 0 ||
+                        docChecksBlocking
+                      }
+                      className="w-full rounded-xl sm:w-auto"
                     >
                       {applyMutation.isPending
                         ? "Envoi…"
-                        : "Envoyer ma candidature"}
+                        : missingDocs.length > 0
+                          ? `${missingDocs.length} document${missingDocs.length > 1 ? "s" : ""} manquant${missingDocs.length > 1 ? "s" : ""}`
+                          : cvCheck.status === "invalid" || coverCheck.status === "invalid"
+                            ? "Document invalide — corrigez avant d'envoyer"
+                            : cvCheck.status === "checking" || coverCheck.status === "checking"
+                              ? "Vérification des documents…"
+                              : "Envoyer ma candidature"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -418,12 +741,27 @@ export default function OfferDetailPage({
               </div>
             </div>
           </div>
-
-          <p className="mt-4 text-center text-xs text-slate-400">
-            Processus : CV / formulaire → candidature → suivi par email → entretien
-          </p>
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function OfferDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-5xl px-4 py-20">
+          <div className="h-40 animate-pulse rounded-2xl bg-secondary" />
+          <div className="mt-8 h-64 animate-pulse rounded-2xl bg-secondary/70" />
+        </div>
+      }
+    >
+      <OfferDetailContent params={params} />
+    </Suspense>
   );
 }

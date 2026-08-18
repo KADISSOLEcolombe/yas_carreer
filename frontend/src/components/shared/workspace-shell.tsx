@@ -1,17 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   ChevronDown,
-  HelpCircle,
   LogOut,
   Search,
   Settings,
 } from "lucide-react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth-store";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -52,7 +50,6 @@ function greeting(firstName: string) {
 export function WorkspaceShell({
   children,
   mainNav,
-  otherNav = [],
   homeHref,
   workspaceLabel,
   primaryCta,
@@ -60,14 +57,12 @@ export function WorkspaceShell({
 }: {
   children: React.ReactNode;
   mainNav: WorkspaceNavItem[];
-  otherNav?: WorkspaceNavItem[];
   homeHref: string;
   workspaceLabel: string;
   primaryCta?: { href: string; label: string; icon: LucideIcon };
   tagline?: string;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, logout } = useAuthStore();
   const [query, setQuery] = useState("");
 
@@ -105,7 +100,11 @@ export function WorkspaceShell({
       // ignore
     }
     logout();
-    router.push("/login");
+    // Navigation complète (pas router.push) : le RouteGuard de la page
+    // actuelle réagirait sinon à la perte d'utilisateur avant que la
+    // redirection vers "/" n'ait le temps de s'appliquer, et renverrait
+    // systématiquement vers /login à la place.
+    window.location.href = "/";
   }
 
   function isActive(href: string) {
@@ -178,37 +177,6 @@ export function WorkspaceShell({
               </nav>
             </div>
 
-            {(otherNav.length > 0 || true) && (
-              <div>
-                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
-                  Autres
-                </p>
-                <nav className="space-y-1">
-                  {otherNav.map((item) => (
-                    <NavLink key={item.href} item={item} />
-                  ))}
-                  <Link
-                    href="/"
-                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <Settings className="size-[18px]" strokeWidth={1.75} />
-                    Site public
-                  </Link>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
-                    onClick={() =>
-                      toast.message("Support YasCareer", {
-                        description: "rh@yascareer.tg · admin@yascareer.tg",
-                      })
-                    }
-                  >
-                    <HelpCircle className="size-[18px]" strokeWidth={1.75} />
-                    Support
-                  </button>
-                </nav>
-              </div>
-            )}
           </div>
 
           <DropdownMenu>

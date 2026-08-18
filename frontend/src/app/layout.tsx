@@ -3,6 +3,7 @@ import { Geist, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { SiteHeader } from "@/components/shared/site-header";
+import { SiteFooter } from "@/components/shared/site-footer";
 import { ChatbotWidget } from "@/components/shared/chatbot-widget";
 
 const geistSans = Geist({
@@ -36,6 +37,7 @@ export default function RootLayout({
           <div className="flex min-h-screen flex-col">
             <SiteHeader />
             <main className="flex-1">{children}</main>
+            <SiteFooter />
           </div>
           <ChatbotWidget />
         </Providers>

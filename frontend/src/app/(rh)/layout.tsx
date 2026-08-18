@@ -5,6 +5,7 @@ import {
   Briefcase,
   FileCheck,
   CalendarClock,
+  FileBarChart,
   Plus,
   Bell,
 } from "lucide-react";
@@ -16,6 +17,7 @@ const mainNav = [
   { href: "/rh/candidatures", label: "Candidatures", icon: FileCheck },
   { href: "/rh/offres", label: "Offres", icon: Briefcase },
   { href: "/rh/entretiens", label: "Entretiens", icon: CalendarClock },
+  { href: "/rh/rapports", label: "Rapports", icon: FileBarChart },
   { href: "/rh/notifications", label: "Notifications", icon: Bell },
 ];
 

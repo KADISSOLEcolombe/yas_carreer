@@ -22,6 +22,7 @@ import { ApiError, authApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { ROLE_DASHBOARD_PATH } from "@/lib/constants";
 import { AuthSplitLayout } from "@/components/shared/auth-split-layout";
+import { getPendingOffer, setPendingOffer } from "@/lib/pending-application";
 
 // Miroir des règles serveur (server/validators.ts) — le backend reste la
 // source de vérité indépendante, ceci n'améliore que le retour immédiat.
@@ -111,11 +112,19 @@ function RegisterForm() {
       });
       setAuth(result.user, result.token);
       toast.success(`Bienvenue, ${result.user.fullName || result.user.email} !`);
-      if (next && next.startsWith("/")) {
-        router.push(next);
-      } else {
-        router.push(ROLE_DASHBOARD_PATH[result.user.role]);
+
+      // L'utilisateur vient de créer son compte candidat : on ne le renvoie
+      // pas directement sur l'offre visée, mais vers son espace candidat,
+      // où une popup lui propose de compléter son profil. On conserve
+      // toutefois l'offre qu'il visait pour qu'il puisse la reprendre.
+      const offerMatch = next?.match(/^\/offres\/(\d+)/);
+      if (offerMatch && !getPendingOffer()) {
+        setPendingOffer(Number(offerMatch[1]), "Offre");
       }
+      if (result.user.role === "candidat") {
+        window.sessionStorage.setItem("yas_just_registered", "1");
+      }
+      router.push(ROLE_DASHBOARD_PATH[result.user.role]);
     } catch (error) {
       toast.error(
         error instanceof ApiError ? error.message : "Création du compte impossible"

@@ -12,7 +12,6 @@ import {
   MapPin,
   Pencil,
   Trash2,
-  Trophy,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,8 +26,6 @@ import {
   OfferComposerDialog,
   type OfferFormValues,
 } from "@/components/shared/offer-composer-dialog";
-import { AiRankingDialog } from "@/components/shared/ai-ranking-dialog";
-import { OfferAiAnalysisPanel } from "@/components/shared/offer-ai-analysis-panel";
 import {
   daysUntil,
   isOfferExpired,
@@ -46,14 +43,13 @@ export default function RhOfferDetailPage({
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [formValues, setFormValues] = useState<OfferFormValues | null>(null);
-  const [rankOpen, setRankOpen] = useState(false);
 
   const { data: offer, isLoading } = useQuery({
     queryKey: ["offer", id],
     queryFn: () => offersApi.get(id),
   });
 
-  const { data: applications, isLoading: loadingApps } = useQuery({
+  const { data: applications } = useQuery({
     queryKey: ["applications", "offer", id],
     queryFn: () => applicationsApi.list({ offerId: Number(id) }),
   });
@@ -68,6 +64,8 @@ export default function RhOfferDetailPage({
       deadline: offer.deadline ? offer.deadline.slice(0, 10) : "",
       location: offer.location || "",
       status: offer.status,
+      documentsRequis: offer.documentsRequis,
+      departementId: offer.departementId ? String(offer.departementId) : "",
     });
     setEditOpen(true);
   }
@@ -82,6 +80,8 @@ export default function RhOfferDetailPage({
         deadline: values.deadline || undefined,
         location: values.location || undefined,
         status: values.status,
+        documentsRequis: values.documentsRequis.filter((d) => d.nom.trim().length > 0),
+        departementId: Number(values.departementId),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["offer", id] });
@@ -150,12 +150,14 @@ export default function RhOfferDetailPage({
         </Link>
         <div className="flex flex-wrap gap-2">
           <Button
+            asChild
             variant="outline"
             className="h-10 gap-2 rounded-xl border-yas-sky/40 text-yas-midnight"
-            onClick={() => setRankOpen(true)}
           >
-            <Trophy className="size-4 text-yas-sky" />
-            Classement IA
+            <Link href={`/rh/candidatures?offerId=${offer.id}`}>
+              <Users className="size-4 text-yas-sky" />
+              Voir les candidatures
+            </Link>
           </Button>
           <Button
             variant="outline"
@@ -190,6 +192,11 @@ export default function RhOfferDetailPage({
               <SoftStatusPill tone="info">
                 {OFFER_TYPE_LABELS[offer.type]}
               </SoftStatusPill>
+              {offer.departement && (
+                <SoftStatusPill tone="neutral">
+                  {offer.departement.nom}
+                </SoftStatusPill>
+              )}
             </div>
             <h1 className="mt-3 font-heading text-2xl font-bold text-yas-midnight sm:text-3xl">
               {offer.title}
@@ -253,12 +260,6 @@ export default function RhOfferDetailPage({
         </div>
 
         <div className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-          <OfferAiAnalysisPanel
-            offer={offer}
-            applications={applications ?? []}
-            loading={loadingApps}
-          />
-
           <SoftCard className="bg-gradient-to-br from-yas-yellow/30 to-yas-sky/15">
             <p className="text-xs font-semibold uppercase tracking-wider text-yas-midnight/70">
               Lien public
@@ -289,12 +290,6 @@ export default function RhOfferDetailPage({
           onSave={(values) => saveMutation.mutate(values)}
         />
       )}
-
-      <AiRankingDialog
-        open={rankOpen}
-        onOpenChange={setRankOpen}
-        initialOfferId={Number(id)}
-      />
     </div>
   );
 }

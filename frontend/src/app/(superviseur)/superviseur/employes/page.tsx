@@ -1,17 +1,77 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Building2, CalendarClock } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Eye, MoreHorizontal, NotebookPen, Star } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { emploisApi } from "@/lib/api";
-import { CONTRACT_TYPE_LABELS, EMPLOI_STATUS_LABELS } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ApiError, emploisApi, supervisionNotesApi } from "@/lib/api";
+import { EMPLOI_STATUS_LABELS } from "@/lib/constants";
+import { lastEvaluation, lastFollowUp } from "@/lib/emploi-utils";
+import type { Emploi } from "@/lib/types";
 
 export default function SuperviseurEmployesPage() {
+  const queryClient = useQueryClient();
+  const [reportTarget, setReportTarget] = useState<Emploi | null>(null);
+  const [reportType, setReportType] = useState<"rapport" | "observation">("rapport");
+  const [reportContent, setReportContent] = useState("");
+
   const { data: emplois, isLoading } = useQuery({
     queryKey: ["emplois", "me"],
     queryFn: emploisApi.me,
+  });
+
+  const createReportMutation = useMutation({
+    mutationFn: () =>
+      supervisionNotesApi.create({
+        emploiId: reportTarget!.id,
+        type: reportType,
+        content: reportContent.trim(),
+      }),
+    onSuccess: () => {
+      toast.success("Rapport de suivi ajouté");
+      setReportTarget(null);
+      setReportContent("");
+      queryClient.invalidateQueries({ queryKey: ["emplois", "me"] });
+      queryClient.invalidateQueries({ queryKey: ["supervision-notes"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Erreur lors de l'ajout");
+    },
   });
 
   return (
@@ -34,40 +94,148 @@ export default function SuperviseurEmployesPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {emplois?.map((emploi) => (
-          <Link key={emploi.id} href={`/superviseur/employes/${emploi.id}`}>
-            <Card className="h-full transition hover:border-yas-sky/40 hover:shadow-md">
-              <CardHeader className="flex flex-row items-start justify-between gap-3">
-                <CardTitle className="font-heading text-lg text-yas-midnight">
-                  {emploi.user?.fullName || emploi.user?.email}
-                </CardTitle>
-                <Badge>{CONTRACT_TYPE_LABELS[emploi.contractType]}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                {emploi.department && (
-                  <p className="flex items-center gap-2">
-                    <Building2 className="size-4 text-yas-sky" />
-                    {emploi.department}
-                  </p>
-                )}
-                <p className="flex items-center gap-2">
-                  <CalendarClock className="size-4 text-yas-sky" />
-                  Depuis le{" "}
-                  {new Date(emploi.startDate).toLocaleDateString("fr-FR")}
-                </p>
-                <div className="flex items-center justify-between pt-2">
-                  <Badge variant="outline">{EMPLOI_STATUS_LABELS[emploi.status]}</Badge>
-                  <span className="inline-flex items-center gap-1 text-sm font-medium text-yas-midnight">
-                    Voir le suivi
-                    <ArrowRight className="size-4" />
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {!isLoading && emplois && emplois.length > 0 && (
+        <Card className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nom</TableHead>
+                <TableHead>Poste</TableHead>
+                <TableHead>Département</TableHead>
+                <TableHead>Affecté(e) depuis</TableHead>
+                <TableHead>Dernier suivi</TableHead>
+                <TableHead>Évaluation</TableHead>
+                <TableHead className="text-right">Statut</TableHead>
+                <TableHead className="w-12" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {emplois.map((emploi) => {
+                const followUp = lastFollowUp(emploi);
+                const evaluation = lastEvaluation(emploi);
+                return (
+                  <TableRow key={emploi.id}>
+                    <TableCell className="font-medium text-yas-midnight">
+                      {emploi.user?.fullName || emploi.user?.email}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {emploi.application?.offer?.title ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {emploi.department ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(emploi.startDate).toLocaleDateString("fr-FR")}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {followUp
+                        ? new Date(followUp.createdAt).toLocaleDateString("fr-FR")
+                        : "Aucun"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {evaluation ? (
+                        <span className="inline-flex items-center gap-1">
+                          {evaluation.rating != null && (
+                            <>
+                              <Star className="size-3.5 fill-yas-yellow text-yas-yellow" />
+                              {evaluation.rating}/5
+                            </>
+                          )}
+                          {evaluation.rating == null && "Évalué"}
+                        </span>
+                      ) : (
+                        "Aucune"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="outline">{EMPLOI_STATUS_LABELS[emploi.status]}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="size-8 rounded-lg">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/superviseur/candidature/${emploi.applicationId}`}>
+                              <Eye className="size-4" />
+                              Voir le dossier
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setReportTarget(emploi);
+                              setReportType("rapport");
+                              setReportContent("");
+                            }}
+                          >
+                            <NotebookPen className="size-4" />
+                            Faire un rapport de suivi
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      <Dialog open={Boolean(reportTarget)} onOpenChange={(open) => !open && setReportTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rapport de suivi</DialogTitle>
+            <DialogDescription>
+              {reportTarget?.user?.fullName || reportTarget?.user?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Type</Label>
+              <Select
+                value={reportType}
+                onValueChange={(v) => setReportType(v as "rapport" | "observation")}
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rapport">Rapport de suivi</SelectItem>
+                  <SelectItem value="observation">Observation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="report-content">Contenu</Label>
+              <Textarea
+                id="report-content"
+                rows={4}
+                value={reportContent}
+                onChange={(e) => setReportContent(e.target.value)}
+                placeholder="Observations, progrès, points d'attention…"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                if (reportContent.trim().length < 2) {
+                  toast.error("Ajoutez un contenu pour ce rapport");
+                  return;
+                }
+                createReportMutation.mutate();
+              }}
+              disabled={createReportMutation.isPending}
+            >
+              {createReportMutation.isPending ? "Ajout…" : "Ajouter le rapport"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

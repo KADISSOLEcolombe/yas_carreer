@@ -7,7 +7,6 @@ import {
   Heart,
   CalendarClock,
   UserRound,
-  Settings,
   Search,
 } from "lucide-react";
 import { RouteGuard } from "@/components/shared/route-guard";
@@ -22,10 +21,6 @@ const mainNav = [
   { href: "/candidat/profil", label: "Mon profil", icon: UserRound },
 ];
 
-const otherNav = [
-  { href: "/changer-mot-de-passe", label: "Paramètres", icon: Settings },
-];
-
 export default function CandidatLayout({ children }: { children: React.ReactNode }) {
   return (
     <RouteGuard allow={["candidat"]}>
@@ -34,7 +29,6 @@ export default function CandidatLayout({ children }: { children: React.ReactNode
         workspaceLabel="Espace Candidat"
         tagline="Voici un aperçu de vos candidatures et opportunités."
         mainNav={mainNav}
-        otherNav={otherNav}
         primaryCta={{ href: "/offres", label: "Explorer les offres", icon: Search }}
       >
         {children}

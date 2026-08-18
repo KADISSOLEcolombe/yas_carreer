@@ -2,11 +2,18 @@ import { getStoredToken, useAuthStore } from "@/lib/auth-store";
 import type {
   AdminDashboard,
   Application,
+  ApplicationDetail,
+  ApplicationNote,
   ApplicationStatus,
+  ApplicationSupervisorView,
+  AvailableSlot,
   CandidateDashboard,
+  CandidateDocument,
   CandidateProfile,
   ContractType,
+  Departement,
   Emploi,
+  EmploiDetail,
   Interview,
   InterviewMode,
   InterviewRequest,
@@ -14,10 +21,12 @@ import type {
   Notification,
   Offer,
   OfferAiRanking,
+  OfferDocumentRequirement,
   OfferStatus,
   OfferType,
   RhDashboard,
   SupervisionNote,
+  SupervisionNoteRecommendation,
   SupervisionNoteType,
   User,
   UserRole,
@@ -178,6 +187,9 @@ export const authApi = {
     phone?: string | null;
     bio?: string | null;
     skills?: string | null;
+    anneesEtude?: string | null;
+    ville?: string | null;
+    quartier?: string | null;
   }) =>
     apiRequest<{ user: User; profile: CandidateProfile; updatedAt: string }>(
       "/auth/profile",
@@ -210,6 +222,12 @@ export const usersApi = {
     apiRequest<{ user: User }>(`/users/${id}/status`, {
       method: "PATCH",
       json: { isActive },
+    }),
+
+  updateDepartement: (id: number, departementId: number | null) =>
+    apiRequest<{ user: User }>(`/users/${id}/departement`, {
+      method: "PATCH",
+      json: { departementId },
     }),
 };
 
@@ -247,6 +265,8 @@ export const offersApi = {
     deadline?: string;
     location?: string;
     status?: OfferStatus;
+    documentsRequis?: OfferDocumentRequirement[];
+    departementId: number;
   }) => apiRequest<Offer>("/offers", { method: "POST", json: payload }),
 
   update: (
@@ -259,6 +279,8 @@ export const offersApi = {
       deadline?: string;
       location?: string;
       status?: OfferStatus;
+      documentsRequis?: OfferDocumentRequirement[];
+      departementId: number;
     }
   ) => apiRequest<Offer>(`/offers/${id}`, { method: "PUT", json: payload }),
 
@@ -296,21 +318,62 @@ export const offersApi = {
     }),
 };
 
+// ---------- Départements ----------
+
+export const departementsApi = {
+  list: () => apiRequest<Departement[]>("/departements", { auth: true }),
+};
+
 // ---------- Applications ----------
+
+export type DocumentSelection = { file: File } | { documentId: number };
+
+function appendDocumentSelection(
+  form: FormData,
+  fileKey: string,
+  idKey: string,
+  selection: DocumentSelection | null | undefined
+) {
+  if (!selection) return;
+  if ("file" in selection) form.set(fileKey, selection.file);
+  else form.set(idKey, String(selection.documentId));
+}
 
 export const applicationsApi = {
   create: (payload: {
     offerId: number;
     coverLetterText?: string;
-    cv?: File | null;
-    coverLetter?: File | null;
+    cv: DocumentSelection;
+    coverLetter: DocumentSelection;
+    documents?: Record<string, DocumentSelection>;
   }) => {
     const form = new FormData();
     form.set("offerId", String(payload.offerId));
     if (payload.coverLetterText) form.set("coverLetterText", payload.coverLetterText);
-    if (payload.cv) form.set("cv", payload.cv);
-    if (payload.coverLetter) form.set("coverLetter", payload.coverLetter);
+    appendDocumentSelection(form, "cv", "cvDocumentId", payload.cv);
+    appendDocumentSelection(
+      form,
+      "coverLetter",
+      "coverLetterDocumentId",
+      payload.coverLetter
+    );
+    if (payload.documents) {
+      for (const [name, selection] of Object.entries(payload.documents)) {
+        appendDocumentSelection(form, `doc:${name}`, `docId:${name}`, selection);
+      }
+    }
     return apiRequest<Application>("/applications", { method: "POST", form });
+  },
+
+  validateDocument: (payload: { kind: "cv" | "coverLetter" } & DocumentSelection) => {
+    const form = new FormData();
+    form.set("kind", payload.kind);
+    if ("file" in payload) form.set("file", payload.file);
+    else form.set("documentId", String(payload.documentId));
+    return apiRequest<{ valid: boolean; message: string }>(
+      "/applications/validate-document",
+      { method: "POST", form }
+    );
   },
 
   me: () => apiRequest<Application[]>("/applications/me"),
@@ -323,11 +386,36 @@ export const applicationsApi = {
       })}`
     ),
 
-  updateStatus: (id: number, status: ApplicationStatus, force = false) =>
+  get: (id: number) => apiRequest<ApplicationDetail>(`/applications/${id}`),
+
+  /** Superviseur : même route, vue restreinte (voir ApplicationSupervisorView). */
+  getForSupervisor: (id: number) =>
+    apiRequest<ApplicationSupervisorView>(`/applications/${id}`),
+
+  updateStatus: (
+    id: number,
+    status: ApplicationStatus,
+    options?: { force?: boolean; note?: string }
+  ) =>
     apiRequest<Application>(`/applications/${id}/status`, {
       method: "PATCH",
-      json: { status, force },
+      json: { status, force: options?.force ?? false, note: options?.note },
     }),
+
+  notes: {
+    list: (applicationId: number) =>
+      apiRequest<ApplicationNote[]>(`/applications/${applicationId}/notes`),
+    create: (applicationId: number, content: string) =>
+      apiRequest<ApplicationNote>(`/applications/${applicationId}/notes`, {
+        method: "POST",
+        json: { content },
+      }),
+  },
+
+  document: (id: number, kind: "cv" | "coverLetter") =>
+    apiRequest<{ url: string; extension: string; text: string | null }>(
+      `/applications/${id}/documents/${kind}`
+    ),
 
   notifySelected: (applicationIds: number[], message?: string) =>
     apiRequest<{
@@ -381,15 +469,31 @@ export const applicationsApi = {
       }
     ),
 
-  extractCv: (cv: File) => {
+};
+
+// ---------- Candidate documents (diplômes, certifications, lettre type…) ----------
+
+export const candidateDocumentsApi = {
+  list: () => apiRequest<CandidateDocument[]>("/candidate-documents"),
+
+  /** Superviseur uniquement : documents permanents d'un collaborateur qui lui est affecté. */
+  listForUser: (userId: number) =>
+    apiRequest<CandidateDocument[]>(`/candidate-documents${buildQuery({ userId })}`),
+
+  create: (label: string, file: File) => {
     const form = new FormData();
-    form.set("cv", cv);
-    return apiRequest<CandidateProfile>("/candidate-profiles/ai-extract-cv", {
+    form.set("label", label);
+    form.set("file", file);
+    return apiRequest<CandidateDocument>("/candidate-documents", {
       method: "POST",
       form,
     });
   },
 
+  remove: (id: number) =>
+    apiRequest<{ message: string }>(`/candidate-documents/${id}`, {
+      method: "DELETE",
+    }),
 };
 
 // ---------- Interviews ----------
@@ -417,22 +521,36 @@ export const interviewsApi = {
 // ---------- Interview requests (disponibilité superviseur) ----------
 
 export const interviewRequestsApi = {
-  create: (payload: { applicationId: number; supervisorId: number }) =>
-    apiRequest<InterviewRequest>("/interview-requests", { method: "POST", json: payload }),
-
-  list: (applicationId?: number) =>
-    apiRequest<InterviewRequest[]>(
-      `/interview-requests${buildQuery({ applicationId })}`
-    ),
+  list: (filters: { applicationId?: number; offerId?: number; supervisorId?: number } = {}) =>
+    apiRequest<InterviewRequest[]>(`/interview-requests${buildQuery(filters)}`),
 
   me: () => apiRequest<InterviewRequest[]>("/interview-requests/me"),
 
   respond: (
     id: number,
-    payload: { status: "disponible" | "indisponible"; availabilityNote?: string }
+    payload: {
+      status: "disponible" | "indisponible";
+      availabilityNote?: string;
+      availableSlots?: AvailableSlot[];
+    }
   ) =>
     apiRequest<InterviewRequest>(`/interview-requests/${id}`, {
       method: "PATCH",
+      json: payload,
+    }),
+
+  /** RH : marque une réponse comme traitée (sort de l'onglet "À traiter"). */
+  handle: (id: number) =>
+    apiRequest<InterviewRequest>(`/interview-requests/${id}/handle`, { method: "PATCH" }),
+
+  /** Demande de disponibilité générique (page Entretiens) — non liée à une candidature. */
+  requestAvailability: (payload: {
+    supervisorIds: number[];
+    proposedSlots: AvailableSlot[];
+    message: string;
+  }) =>
+    apiRequest<InterviewRequest[]>("/interview-requests/request-availability", {
+      method: "POST",
       json: payload,
     }),
 };
@@ -452,20 +570,28 @@ export const emploisApi = {
   list: () => apiRequest<Emploi[]>("/emplois"),
 
   me: () => apiRequest<Emploi[]>("/emplois/me"),
+
+  get: (id: number) => apiRequest<EmploiDetail>(`/emplois/${id}`),
 };
 
 // ---------- Supervision notes (rapports / évaluations / observations) ----------
 
 export const supervisionNotesApi = {
-  list: (emploiId: number) =>
-    apiRequest<SupervisionNote[]>(`/supervision-notes${buildQuery({ emploiId })}`),
+  /** RH sans filtre : tous les rapports (suivis + évaluations), toutes affectations confondues. */
+  list: (filter: { emploiId?: number; applicationId?: number } = {}) =>
+    apiRequest<SupervisionNote[]>(`/supervision-notes${buildQuery(filter)}`),
+
+  /** Superviseur : historique de ses évaluations d'entretien déjà envoyées. */
+  me: () => apiRequest<SupervisionNote[]>("/supervision-notes/me"),
 
   create: (payload: {
-    emploiId: number;
+    emploiId?: number;
+    applicationId?: number;
     type: SupervisionNoteType;
     title?: string;
     content: string;
     rating?: number;
+    recommendation?: SupervisionNoteRecommendation;
   }) => apiRequest<SupervisionNote>("/supervision-notes", { method: "POST", json: payload }),
 
   update: (

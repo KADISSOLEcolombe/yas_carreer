@@ -43,6 +43,7 @@ import {
   OfferComposerDialog,
   type OfferFormValues,
 } from "@/components/shared/offer-composer-dialog";
+import { OfferAiComposerDialog } from "@/components/shared/offer-ai-composer-dialog";
 import { daysUntil, isOfferExpired, splitSkills } from "@/lib/offer-utils";
 
 export default function RhOffresPage() {
@@ -67,6 +68,7 @@ export default function RhOffresPage() {
   const [statusTab, setStatusTab] = useState<OfferStatus | "all">("all");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [editing, setEditing] = useState<Offer | null>(null);
   const [formValues, setFormValues] = useState<OfferFormValues>(EMPTY_OFFER_FORM);
 
@@ -106,6 +108,16 @@ export default function RhOffresPage() {
     );
   }
 
+  function openCreateAi() {
+    setEditing(null);
+    setAiOpen(true);
+    trackRhAction(
+      "ui.open_offer_ai_composer",
+      "Ouverture du composer IA de nouvelle offre",
+      { category: "ui" }
+    );
+  }
+
   function openEdit(offer: Offer) {
     setEditing(offer);
     setFormValues({
@@ -116,6 +128,8 @@ export default function RhOffresPage() {
       deadline: offer.deadline ? offer.deadline.slice(0, 10) : "",
       location: offer.location || "",
       status: offer.status,
+      documentsRequis: offer.documentsRequis,
+      departementId: offer.departementId ? String(offer.departementId) : "",
     });
     setOpen(true);
     trackRhAction(
@@ -139,6 +153,8 @@ export default function RhOffresPage() {
         deadline: values.deadline || undefined,
         location: values.location || undefined,
         status: values.status,
+        documentsRequis: values.documentsRequis.filter((d) => d.nom.trim().length > 0),
+        departementId: Number(values.departementId),
       };
       return editing
         ? offersApi.update(editing.id, payload)
@@ -148,6 +164,7 @@ export default function RhOffresPage() {
       queryClient.invalidateQueries({ queryKey: ["offers"] });
       toast.success(editing ? "Offre mise à jour" : "Offre créée");
       setOpen(false);
+      setAiOpen(false);
     },
     onError: (error) => {
       toast.error(
@@ -182,11 +199,11 @@ export default function RhOffresPage() {
     <div>
       <SoftPageHeader
         title="Offres"
-        description="Créez une offre en dictant ou en écrivant un brief — l'IA remplit le reste."
+        description="Créez une offre manuellement, ou laissez l'IA vous assister à partir d'un brief."
         action={
           <div className="flex flex-wrap gap-2">
             <Button
-              onClick={openCreate}
+              onClick={openCreateAi}
               variant="outline"
               className="h-10 gap-2 rounded-xl border-yas-sky/40 text-yas-midnight"
             >
@@ -200,7 +217,7 @@ export default function RhOffresPage() {
               <Plus className="size-4" />
               Nouvelle offre
             </Button>
-          </div>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+          </div>
         }
       />
 
@@ -235,8 +252,8 @@ export default function RhOffresPage() {
             onClick={openCreate}
             className="mt-4 gap-2 rounded-xl bg-yas-midnight"
           >
-            <Sparkles className="size-4" />
-            Créer avec l&apos;IA
+            <Plus className="size-4" />
+            Nouvelle offre
           </Button>
         </SoftCard>
       )}
@@ -372,6 +389,13 @@ export default function RhOffresPage() {
         onOpenChange={setOpen}
         mode={editing ? "edit" : "create"}
         initialValues={formValues}
+        saving={saveMutation.isPending}
+        onSave={(values) => saveMutation.mutate(values)}
+      />
+
+      <OfferAiComposerDialog
+        open={aiOpen}
+        onOpenChange={setAiOpen}
         saving={saveMutation.isPending}
         onSave={(values) => saveMutation.mutate(values)}
       />
